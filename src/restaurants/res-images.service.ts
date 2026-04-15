@@ -19,6 +19,16 @@ export class RFileService {
     private readonly restRepo: Repository<RestaurantProfile>,
   ) {}
 
+  private buildRestaurantImageUrl(image: string): string {
+    if (!image || image.startsWith('http://') || image.startsWith('https://')) {
+      return image;
+    }
+
+    const bucket = process.env.AWS_BUCKET_NAME!;
+    const region = process.env.AWS_REGION!;
+    return `https://${bucket}.s3.${region}.amazonaws.com/images/restaurant/${image}`;
+  }
+
   // ============================================================
   // MULTIPLE rest IMAGE UPLOAD WITH PREFIX
   // ============================================================
@@ -39,7 +49,9 @@ export class RFileService {
       throw new BadRequestException('Invalid rest UID');
     }
 
-    const existingImages = rest.photo ?? [];
+    const existingImages = (rest.photo ?? []).map((image) =>
+      this.buildRestaurantImageUrl(image),
+    );
     const bucket = process.env.AWS_BUCKET_NAME!;
     const results: ResImageUploadResponse[] = [];
 
@@ -53,8 +65,7 @@ export class RFileService {
 
       const url = await this.s3Util.uploadFile(bucket, key, file);
 
-      // PUSH ONLY IMAGE NAME INTO DB
-      existingImages.push(imageName);
+      existingImages.push(url);
 
       results.push({
         status: 'success',
@@ -64,8 +75,8 @@ export class RFileService {
       });
     }
 
-    // SAVE ALL NEW IMAGES
-    await this.restRepo.update({ restaurantUid }, { photo: existingImages });
+    rest.photo = existingImages;
+    await this.restRepo.save(rest);
 
     return results;
   }
