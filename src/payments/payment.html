@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Make Payment</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+
+<body>
+
+    <h2>Make Payment</h2>
+
+    <label>Amount (₹):</label><br>
+    <input type="number" id="amount" placeholder="Enter amount" /><br><br>
+
+    <label>Razorpay Order ID:</label><br>
+    <input type="text" id="orderId" placeholder="order_ABC123" /><br><br>
+
+    <button id="payBtn">Pay Now</button>
+
+    <script>
+        document.getElementById("payBtn").onclick = function () {
+
+            const amount = document.getElementById("amount").value;
+            const orderId = document.getElementById("orderId").value;
+
+            if (!amount || !orderId) {
+                alert("Please enter amount and order ID");
+                return;
+            }
+
+            // Use your Razorpay test key (SAME as backend)
+            const keyId = "rzp_live_Rx5BK3tE2MY3PP";
+
+            const options = {
+                key: keyId,
+                amount: Number(amount) * 100, // convert to paise
+                currency: "INR",
+                name: "Payment Test",
+                description: "Razorpay Payment Test",
+
+                order_id: orderId,
+
+                handler: function (response) {
+                    alert("Payment Successful!");
+
+                    console.log("Payment ID:", response.razorpay_payment_id);
+                    console.log("Order ID:", response.razorpay_order_id);
+                    console.log("Signature:", response.razorpay_signature);
+
+                    alert("Payment ID: " + response.razorpay_payment_id);
+
+                    // CALL BACKEND STATUS API HERE (optional)
+                    /*
+                    fetch("http://localhost:3000/payments/status", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ paymentId: response.razorpay_payment_id })
+                    })
+                    .then(res => res.json())
+                    .then(data => console.log("Backend status:", data))
+                    .catch(err => console.error(err));
+                    */
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+        };
+    </script>
+
+</body>
+
+</html>

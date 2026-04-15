@@ -1,0 +1,49 @@
+
+ssh -i server-key.pem ubuntu@52.66.77.59
+
+
+# go to backend
+cd /home/ubuntu/restaurant_app
+
+# backup
+tar -czf zenzio_backend_backup_$(date +%Y%m%d_%H%M%S).tar.gz zenzio_backend
+
+# update code (upload / git pull)
+
+cd zenzio_backend
+
+npm install
+npm run build
+
+pm2 restart backend
+
+pm2 logs backend
+or 
+pm2 status
+
+if want --exclude='node_modules' in tar
+
+
+................................................
+
+Restor Backup
+
+cd /home/ubuntu/restaurant_app
+
+# stop backend
+pm2 stop backend
+
+# remove current code
+rm -rf zenzio_backend
+
+# extract backup
+tar -xzf ~/zenzio_backend_backup_YYYYMMDD_HHMMSS.tar.gz
+
+# install dependencies
+cd zenzio_backend
+npm install
+npm run build
+
+# restart
+pm2 start backend
+pm2 logs backend
