@@ -8,6 +8,7 @@ import { RestaurantEnumService } from './restaurant_enum.service';
 import { RestaurantEnum } from './restaurant_enum.entity';
 import { JwtServiceShared } from 'src/shared/jwt.service';
 import { Restaurant } from 'src/restaurants/entity/restaurant.entity';
+import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 import { FileService } from 'src/file/file.service';
 import { S3Module } from 'src/aws/s3.module';
 import { MFileService } from './menu-images.service';
@@ -15,7 +16,7 @@ import { MFileService } from './menu-images.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RestaurantMenu, RestaurantEnum, Restaurant]),
+    TypeOrmModule.forFeature([RestaurantMenu, RestaurantEnum, Restaurant, RestaurantProfile]),
     S3Module, // <--- FIX
   ],
   controllers: [Restaurant_menuController, RestaurantEnumController],

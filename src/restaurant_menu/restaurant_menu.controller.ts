@@ -215,6 +215,30 @@ export class Restaurant_menuController {
     };
   }
 
+  @Get('suggestions')
+  @ApiOperation({ summary: 'Get search suggestions for food items and restaurant names' })
+  @ApiQuery({ name: 'query', required: false, example: 'pizza' })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'Suggestions fetched successfully' })
+  async getSuggestions(
+    @Query('query') query?: string,
+    @Query('limit') limit = 10,
+  ) {
+    const data = await this.restaurant_menuService.getSearchSuggestions(query, Number(limit));
+
+    return {
+      status: 'success',
+      code: 200,
+      message: 'Search suggestions fetched successfully',
+      data,
+      meta: {
+        timestamp: new Date().toISOString(),
+        total: data.suggestions.length,
+        limit: Number(limit),
+      },
+    };
+  }
+
   @Get(':restaurant_uid/categories')
   @ApiOperation({ summary: 'Fetch unique categories for a specific restaurant' })
   @ApiParam({ name: 'restaurant_uid', example: 'REST-123456', description: 'Restaurant UID' })

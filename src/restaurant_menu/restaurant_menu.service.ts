@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsOrderValue, ILike, FindOptionsWhere, IsNull } from 'typeorm';
 import { RestaurantMenu } from './restaurant_menu.entity';
 import { Restaurant } from 'src/restaurants/entity/restaurant.entity';
+import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 
 import {
   buildNearestRestaurantMenuQuery,
@@ -26,6 +27,272 @@ export class RestaurantMenuService {
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,
   ) { }
+
+  async getSearchSuggestions(query?: string, limit = 10) {
+    const trimmedQuery = query?.trim() ?? '';
+    const normalizedLimit = Math.min(Math.max(Number(limit) || 10, 1), 20);
+    const normalizedQuery = trimmedQuery.toLowerCase();
+    const resultLimit = Math.max(normalizedLimit * 2, 10);
+
+    const [foodSuggestions, restaurantSuggestions] = await Promise.all([
+      trimmedQuery.length > 0
+        ? this.getFoodSuggestionsByQuery(normalizedQuery, resultLimit)
+        : this.getPopularFoodSuggestions(resultLimit),
+      trimmedQuery.length > 0
+        ? this.getRestaurantSuggestionsByQuery(normalizedQuery, resultLimit)
+        : this.getPopularRestaurantSuggestions(resultLimit),
+    ]);
+
+    const mergedSuggestions = [...foodSuggestions, ...restaurantSuggestions]
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+
+        if (b.popularity !== a.popularity) {
+          return b.popularity - a.popularity;
+        }
+
+        return a.title.localeCompare(b.title);
+      })
+      .slice(0, normalizedLimit)
+      .map(({ score, popularity, ...suggestion }) => suggestion);
+
+    return {
+      query: trimmedQuery,
+      suggestions: mergedSuggestions,
+    };
+  }
+
+  private async getFoodSuggestionsByQuery(query: string, limit: number) {
+    const prefixQuery = `${query}%`;
+    const containsQuery = `%${query}%`;
+
+    const rows = await this.menuRepository
+      .createQueryBuilder('menu')
+      .innerJoin(Restaurant, 'restaurant', 'restaurant.uid = menu.restaurant_uid')
+      .leftJoin(RestaurantProfile, 'profile', 'profile.restaurantUid = menu.restaurant_uid')
+      .select([
+        'menu.menu_uid AS "menuUid"',
+        'menu.menu_name AS "menuName"',
+        'menu.restaurant_uid AS "restaurantUid"',
+        'menu.category AS "category"',
+        'menu.food_type AS "foodType"',
+        'menu.cuisine_type AS "cuisineType"',
+        'menu.images AS "images"',
+        'menu.orderedCount AS "orderedCount"',
+        'menu.rating AS "rating"',
+        'profile.restaurant_name AS "restaurantName"',
+      ])
+      .addSelect(
+        `
+          CASE
+            WHEN LOWER(menu.menu_name) = :query THEN 120
+            WHEN LOWER(menu.menu_name) LIKE :prefixQuery THEN 95
+            WHEN LOWER(menu.menu_name) LIKE :containsQuery THEN 75
+            WHEN LOWER(COALESCE(menu.category, '')) LIKE :containsQuery THEN 45
+            WHEN LOWER(COALESCE(menu.cuisine_type, '')) LIKE :containsQuery THEN 40
+            WHEN LOWER(COALESCE(menu.food_type, '')) LIKE :containsQuery THEN 35
+            ELSE 0
+          END
+        `,
+        'score',
+      )
+      .where('menu.isActive = true')
+      .andWhere('menu.status = true')
+      .andWhere('restaurant.isActive = true')
+      .andWhere(
+        `(
+          LOWER(menu.menu_name) LIKE :containsQuery
+          OR LOWER(COALESCE(menu.category, '')) LIKE :containsQuery
+          OR LOWER(COALESCE(menu.cuisine_type, '')) LIKE :containsQuery
+          OR LOWER(COALESCE(menu.food_type, '')) LIKE :containsQuery
+        )`,
+      )
+      .setParameters({ query, prefixQuery, containsQuery })
+      .orderBy('"score"', 'DESC')
+      .addOrderBy('menu.orderedCount', 'DESC')
+      .addOrderBy('menu.rating', 'DESC')
+      .addOrderBy('menu.menu_name', 'ASC')
+      .limit(limit)
+      .getRawMany();
+
+    return rows.map((row) => ({
+      type: 'food',
+      title: row.menuName,
+      subtitle: row.restaurantName ? `${row.restaurantName}${row.category ? ` • ${row.category}` : ''}` : row.category,
+      matchSource: this.getFoodMatchSource(query, row),
+      menu_uid: row.menuUid,
+      restaurant_uid: row.restaurantUid,
+      restaurant_name: row.restaurantName,
+      category: row.category,
+      food_type: row.foodType,
+      cuisine_type: row.cuisineType,
+      image: Array.isArray(row.images) && row.images.length > 0 ? row.images[0] : null,
+      score: Number(row.score) || 0,
+      popularity: (Number(row.orderedCount) || 0) + (Number(row.rating) || 0) * 10,
+    }));
+  }
+
+  private async getRestaurantSuggestionsByQuery(query: string, limit: number) {
+    const prefixQuery = `${query}%`;
+    const containsQuery = `%${query}%`;
+
+    const rows = await this.restaurantRepository
+      .createQueryBuilder('restaurant')
+      .innerJoin(RestaurantProfile, 'profile', 'profile.restaurantUid = restaurant.uid')
+      .select([
+        'restaurant.uid AS "restaurantUid"',
+        'restaurant.rating_avg AS "ratingAvg"',
+        'restaurant.rating_count AS "ratingCount"',
+        'profile.restaurant_name AS "restaurantName"',
+        'profile.food_type AS "foodType"',
+        'profile.photo AS "photo"',
+      ])
+      .addSelect(
+        `
+          CASE
+            WHEN LOWER(profile.restaurant_name) = :query THEN 120
+            WHEN LOWER(profile.restaurant_name) LIKE :prefixQuery THEN 95
+            WHEN LOWER(profile.restaurant_name) LIKE :containsQuery THEN 75
+            WHEN LOWER(COALESCE(profile.food_type, '')) LIKE :containsQuery THEN 30
+            ELSE 0
+          END
+        `,
+        'score',
+      )
+      .where('restaurant.isActive = true')
+      .andWhere(
+        `(
+          LOWER(profile.restaurant_name) LIKE :containsQuery
+          OR LOWER(COALESCE(profile.food_type, '')) LIKE :containsQuery
+        )`,
+      )
+      .setParameters({ query, prefixQuery, containsQuery })
+      .orderBy('"score"', 'DESC')
+      .addOrderBy('restaurant.rating_avg', 'DESC')
+      .addOrderBy('restaurant.rating_count', 'DESC')
+      .addOrderBy('profile.restaurant_name', 'ASC')
+      .limit(limit)
+      .getRawMany();
+
+    return rows.map((row) => ({
+      type: 'restaurant',
+      title: row.restaurantName,
+      subtitle: row.foodType ? `${row.foodType} restaurant` : 'Restaurant',
+      matchSource: this.getRestaurantMatchSource(query, row),
+      restaurant_uid: row.restaurantUid,
+      restaurant_name: row.restaurantName,
+      food_type: row.foodType,
+      image: Array.isArray(row.photo) && row.photo.length > 0 ? row.photo[0] : null,
+      score: Number(row.score) || 0,
+      popularity: (Number(row.ratingAvg) || 0) * 20 + (Number(row.ratingCount) || 0),
+    }));
+  }
+
+  private async getPopularFoodSuggestions(limit: number) {
+    const rows = await this.menuRepository
+      .createQueryBuilder('menu')
+      .innerJoin(Restaurant, 'restaurant', 'restaurant.uid = menu.restaurant_uid')
+      .leftJoin(RestaurantProfile, 'profile', 'profile.restaurantUid = menu.restaurant_uid')
+      .select([
+        'menu.menu_uid AS "menuUid"',
+        'menu.menu_name AS "menuName"',
+        'menu.restaurant_uid AS "restaurantUid"',
+        'menu.category AS "category"',
+        'menu.food_type AS "foodType"',
+        'menu.cuisine_type AS "cuisineType"',
+        'menu.images AS "images"',
+        'menu.orderedCount AS "orderedCount"',
+        'menu.rating AS "rating"',
+        'profile.restaurant_name AS "restaurantName"',
+      ])
+      .where('menu.isActive = true')
+      .andWhere('menu.status = true')
+      .andWhere('restaurant.isActive = true')
+      .orderBy('menu.orderedCount', 'DESC')
+      .addOrderBy('menu.rating', 'DESC')
+      .addOrderBy('menu.menu_name', 'ASC')
+      .limit(limit)
+      .getRawMany();
+
+    return rows.map((row) => ({
+      type: 'food',
+      title: row.menuName,
+      subtitle: row.restaurantName ? `${row.restaurantName}${row.category ? ` • ${row.category}` : ''}` : row.category,
+      matchSource: 'popular_food',
+      menu_uid: row.menuUid,
+      restaurant_uid: row.restaurantUid,
+      restaurant_name: row.restaurantName,
+      category: row.category,
+      food_type: row.foodType,
+      cuisine_type: row.cuisineType,
+      image: Array.isArray(row.images) && row.images.length > 0 ? row.images[0] : null,
+      score: 20,
+      popularity: (Number(row.orderedCount) || 0) + (Number(row.rating) || 0) * 10,
+    }));
+  }
+
+  private async getPopularRestaurantSuggestions(limit: number) {
+    const rows = await this.restaurantRepository
+      .createQueryBuilder('restaurant')
+      .innerJoin(RestaurantProfile, 'profile', 'profile.restaurantUid = restaurant.uid')
+      .select([
+        'restaurant.uid AS "restaurantUid"',
+        'restaurant.rating_avg AS "ratingAvg"',
+        'restaurant.rating_count AS "ratingCount"',
+        'profile.restaurant_name AS "restaurantName"',
+        'profile.food_type AS "foodType"',
+        'profile.photo AS "photo"',
+      ])
+      .where('restaurant.isActive = true')
+      .orderBy('restaurant.rating_avg', 'DESC')
+      .addOrderBy('restaurant.rating_count', 'DESC')
+      .addOrderBy('profile.restaurant_name', 'ASC')
+      .limit(limit)
+      .getRawMany();
+
+    return rows.map((row) => ({
+      type: 'restaurant',
+      title: row.restaurantName,
+      subtitle: row.foodType ? `${row.foodType} restaurant` : 'Restaurant',
+      matchSource: 'popular_restaurant',
+      restaurant_uid: row.restaurantUid,
+      restaurant_name: row.restaurantName,
+      food_type: row.foodType,
+      image: Array.isArray(row.photo) && row.photo.length > 0 ? row.photo[0] : null,
+      score: 15,
+      popularity: (Number(row.ratingAvg) || 0) * 20 + (Number(row.ratingCount) || 0),
+    }));
+  }
+
+  private getFoodMatchSource(query: string, row: Record<string, any>) {
+    const menuName = String(row.menuName || '').toLowerCase();
+    const category = String(row.category || '').toLowerCase();
+    const cuisineType = String(row.cuisineType || '').toLowerCase();
+    const foodType = String(row.foodType || '').toLowerCase();
+
+    if (menuName === query) return 'food_exact';
+    if (menuName.startsWith(query)) return 'food_prefix';
+    if (menuName.includes(query)) return 'food_name';
+    if (category.includes(query)) return 'food_category';
+    if (cuisineType.includes(query)) return 'food_cuisine';
+    if (foodType.includes(query)) return 'food_type';
+
+    return 'food_related';
+  }
+
+  private getRestaurantMatchSource(query: string, row: Record<string, any>) {
+    const restaurantName = String(row.restaurantName || '').toLowerCase();
+    const foodType = String(row.foodType || '').toLowerCase();
+
+    if (restaurantName === query) return 'restaurant_exact';
+    if (restaurantName.startsWith(query)) return 'restaurant_prefix';
+    if (restaurantName.includes(query)) return 'restaurant_name';
+    if (foodType.includes(query)) return 'restaurant_food_type';
+
+    return 'restaurant_related';
+  }
 
 
   async create(data: Partial<RestaurantMenu>): Promise<RestaurantMenu> {

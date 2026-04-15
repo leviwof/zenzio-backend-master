@@ -43,7 +43,7 @@ jobs:
 
             echo "Health check on port ${APP_PORT}"
             for i in $(seq 1 20); do
-              if curl -fsS "http://localhost:${APP_PORT}/" >/dev/null; then
+              if curl -fsS "http://localhost:${APP_PORT}/health" >/dev/null; then
                 echo "Health check passed"
                 exit 0
               fi

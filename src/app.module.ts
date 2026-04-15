@@ -66,6 +66,7 @@ import { BannersModule } from './banners/banners.module';
 import { Banner } from './banners/banner.entity';
 import { GlobalSettingsModule } from './global-settings/global-settings.module';
 import { ReferralModule } from './referral/referral.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -110,6 +111,7 @@ import { ReferralModule } from './referral/referral.module';
     BannersModule,
     GlobalSettingsModule,
     ReferralModule,
+    HealthModule,
 
     TypeOrmModule.forFeature([Session, SuperAdmin, Banner]),
 
@@ -134,6 +136,8 @@ export class AppModule implements NestModule, OnModuleInit {
       .apply(VerificationClientMiddleware)
       .exclude(
         { path: '/', method: RequestMethod.ALL },
+        { path: 'health', method: RequestMethod.ALL },
+        { path: 'health/live', method: RequestMethod.ALL },
         { path: '/status-codes', method: RequestMethod.ALL },
         { path: 'test-email', method: RequestMethod.ALL },
       )
