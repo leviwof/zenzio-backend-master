@@ -33,10 +33,24 @@ jobs:
             npm run build
 
             echo "Restart app"
-            pm2 restart backend || pm2 start dist/main.js --name backend
+            pm2 restart backend --update-env || pm2 start dist/main.js --name backend --update-env
 
             echo "Save PM2 state"
             pm2 save
 
-            echo "Health check"
-            curl -f http://localhost:3000 || exit 1
+            APP_PORT=$(awk -F= '/^PORT=/{print $2}' .env | tail -n 1)
+            APP_PORT=${APP_PORT:-4000}
+
+            echo "Health check on port ${APP_PORT}"
+            for i in $(seq 1 20); do
+              if curl -fsS "http://localhost:${APP_PORT}/" >/dev/null; then
+                echo "Health check passed"
+                exit 0
+              fi
+              echo "Waiting for app to boot... attempt ${i}/20"
+              sleep 3
+            done
+
+            echo "Health check failed after waiting for startup"
+            pm2 logs backend --lines 100 --nostream || true
+            exit 1
