@@ -108,6 +108,30 @@ export class RestaurantsService implements OnModuleInit {
 
   }
 
+  private normalizeRestaurantPhoto(photo: string): string {
+    if (!photo || photo.startsWith('http://') || photo.startsWith('https://')) {
+      return photo;
+    }
+
+    const bucket = process.env.AWS_BUCKET_NAME;
+    const region = process.env.AWS_REGION;
+    if (!bucket || !region) {
+      return photo;
+    }
+
+    return `https://${bucket}.s3.${region}.amazonaws.com/images/restaurant/${photo}`;
+  }
+
+  private normalizeRestaurantPhotos(photos?: string[] | null): string[] {
+    if (!Array.isArray(photos)) {
+      return [];
+    }
+
+    return photos
+      .filter((photo): photo is string => typeof photo === 'string' && photo.length > 0)
+      .map((photo) => this.normalizeRestaurantPhoto(photo));
+  }
+
   async onModuleInit() {
     await this.migrateDeliveryRadius();
     await this.migrateDiningColumns();
@@ -367,6 +391,10 @@ export class RestaurantsService implements OnModuleInit {
       throw new NotFoundException(`Restaurant with uid=${uid} not found`);
     }
 
+    if (restaurant.profile) {
+      restaurant.profile.photo = this.normalizeRestaurantPhotos(restaurant.profile.photo);
+    }
+
     return restaurant;
   }
 
@@ -378,6 +406,10 @@ export class RestaurantsService implements OnModuleInit {
 
     if (!user) {
       throw new NotFoundException(`Restaurant with uid=${uid} not found`);
+    }
+
+    if (user.profile) {
+      user.profile.photo = this.normalizeRestaurantPhotos(user.profile.photo);
     }
 
     // Compute GST status from documents, then strip documents from public response
@@ -404,6 +436,10 @@ export class RestaurantsService implements OnModuleInit {
       throw new NotFoundException(`Restaurant with uid=${uid} not found`);
     }
 
+    if (user.profile) {
+      user.profile.photo = this.normalizeRestaurantPhotos(user.profile.photo);
+    }
+
     return user;
   }
 
@@ -412,8 +448,16 @@ export class RestaurantsService implements OnModuleInit {
   }
 
   async findAll(): Promise<Restaurant[]> {
-    return await this.restaurantRepository.find({
+    const restaurants = await this.restaurantRepository.find({
       relations: ['profile'],
+    });
+
+    return restaurants.map((restaurant) => {
+      if (restaurant.profile) {
+        restaurant.profile.photo = this.normalizeRestaurantPhotos(restaurant.profile.photo);
+      }
+
+      return restaurant;
     });
   }
 
@@ -554,6 +598,8 @@ export class RestaurantsService implements OnModuleInit {
       throw new NotFoundException('Restaurant profile not found');
     }
 
+    profile.photo = this.normalizeRestaurantPhotos(profile.photo);
+
     return profile;
   }
 
@@ -622,33 +668,38 @@ export class RestaurantsService implements OnModuleInit {
     const total = raw.length > 0 ? Number(raw[0].total_count) : 0;
     console.log({ rawLength: raw.length, total });
 
-    const items: NearestActiveRestaurantResult[] = raw.map((r: any) => ({
-      restaurant_uid: String(r.restaurant_uid),
-      restaurant_id: Number(r.restaurant_id),
-      restaurant_name: r.restaurant_name ? String(r.restaurant_name) : null,
-      isDiningEnabled: r.isDiningEnabled ?? false,
-      isGstRegistered: Boolean(r.gst_number?.toString().trim()),
-      lat: Number(r.lat),
-      lng: Number(r.lng),
-      distance: Number(r.distance),
-      avg_cost_two: r.avg_cost_for_two ? String(r.avg_cost_for_two) : '0',
-      rest_address: r.full_address ? String(r.full_address) : null,
-      rest_logo: Array.isArray(r.photo) && r.photo.length > 0 ? String(r.photo[0]) : null,
-      rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
-      food_type: r.food_type ? String(r.food_type) : null,
-      current_offers: Array.isArray(r.current_offers) ? r.current_offers : [],
+    const items: NearestActiveRestaurantResult[] = raw.map((r: any) => {
+      const photo = this.normalizeRestaurantPhotos(
+        Array.isArray(r.photo) ? (r.photo as unknown[]).map((p) => String(p)) : [],
+      );
 
-      profile: {
+      return {
+        restaurant_uid: String(r.restaurant_uid),
+        restaurant_id: Number(r.restaurant_id),
         restaurant_name: r.restaurant_name ? String(r.restaurant_name) : null,
-        contact_person: r.contact_person ? String(r.contact_person) : null,
-        contact_number: r.contact_number ? String(r.contact_number) : null,
-        avg_cost_for_two: r.avg_cost_for_two ? String(r.avg_cost_for_two) : null,
-        packing_charge: r.packing_charge ? Number(r.packing_charge) : 0,
+        isDiningEnabled: r.isDiningEnabled ?? false,
+        isGstRegistered: Boolean(r.gst_number?.toString().trim()),
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        distance: Number(r.distance),
+        avg_cost_two: r.avg_cost_for_two ? String(r.avg_cost_for_two) : '0',
+        rest_address: r.full_address ? String(r.full_address) : null,
+        rest_logo: photo[0] ?? null,
+        rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
         food_type: r.food_type ? String(r.food_type) : null,
-        contact_email: r.contact_email ? String(r.contact_email) : null,
-        photo: Array.isArray(r.photo) ? (r.photo as unknown[]).map((p) => String(p)) : [],
-      },
-    }));
+        current_offers: Array.isArray(r.current_offers) ? r.current_offers : [],
+        profile: {
+          restaurant_name: r.restaurant_name ? String(r.restaurant_name) : null,
+          contact_person: r.contact_person ? String(r.contact_person) : null,
+          contact_number: r.contact_number ? String(r.contact_number) : null,
+          avg_cost_for_two: r.avg_cost_for_two ? String(r.avg_cost_for_two) : null,
+          packing_charge: r.packing_charge ? Number(r.packing_charge) : 0,
+          food_type: r.food_type ? String(r.food_type) : null,
+          contact_email: r.contact_email ? String(r.contact_email) : null,
+          photo,
+        },
+      };
+    });
 
 
     return [items, total];
