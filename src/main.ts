@@ -75,11 +75,17 @@ async function bootstrap() {
     });
   }
 
+  const corsOrigins = process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3001', 'http://localhost:4000', 'http://52.66.77.59:4173'];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') || '*',
-    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'clientId'],
+    origin: corsOrigins,
+    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'clientId', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
     credentials: true,
+    maxAge: 86400,
   });
 
   app.useGlobalFilters(new HttpExceptionFilter());
