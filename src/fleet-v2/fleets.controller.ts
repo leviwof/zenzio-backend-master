@@ -63,6 +63,35 @@ export class FleetsController {
     private readonly redisService: RedisService,
   ) { }
 
+  @Get('stats')
+  async getPartnerStats() {
+    const totalPartners = await this.fleetRepository.count();
+    const activePartners = await this.fleetRepository.count({ where: { isActive: true } });
+    const onDutyPartners = await this.fleetRepository.count({ where: { status: true, isActive: true } });
+    const pendingPartners = await this.fleetRepository
+      .createQueryBuilder('fleet')
+      .where('fleet.status = :status', { status: false })
+      .andWhere('(fleet.verificationFlags = 0 OR fleet.verificationFlags IS NULL)')
+      .getCount();
+
+    return {
+      status: 'success',
+      code: 200,
+      data: {
+        total: totalPartners,
+        active: activePartners,
+        onDuty: onDutyPartners,
+        pending: pendingPartners,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  @Get('vehicles')
+  async getVehicleTypes() {
+    return this.fleetService.getVehicleTypes();
+  }
+
   @Get()
   async getAllFleets(
     @Query('page') page = 1,

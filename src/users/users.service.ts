@@ -489,4 +489,21 @@ export class UsersService {
 
     return user.notificationsEnabled;
   }
+
+  async getCustomerStats() {
+    const totalCustomers = await this.userRepository.count();
+    const activeCustomers = await this.userRepository.count({ where: { isActive: 1 } });
+    const inactiveCustomers = await this.userRepository.count({ where: { isActive: 0 } });
+
+    return {
+      status: 'success',
+      code: 200,
+      data: {
+        total: totalCustomers,
+        active: activeCustomers,
+        inactive: inactiveCustomers,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
 }

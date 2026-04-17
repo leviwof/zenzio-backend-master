@@ -10,6 +10,7 @@ import {
   Req,
   UseInterceptors,
   UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { DiningSpaceService } from './dining-spaces.service';
 import { CreateDiningSpaceDto } from './dto/create-dining-space.dto';
@@ -38,37 +39,6 @@ export class DiningSpaceController {
       for (const file of files) {
         const key = `dining-space/${Date.now()}_${file.originalname}`;
         const url = await this.s3Util.uploadFile(process.env.AWS_S3_BUCKET_NAME!, key, file);
-        // Extract clean key/filename if needed, but entity expects array of something.
-        // Based on S3Util, it returns full URL.
-        // But other parts of app seem to store filename only?
-        // Let's check S3Util again. It returns full URL.
-        // But SettingsScreen logic suggests it handles either URL or filename.
-        // Let's store the filename (key) or just the part after folder?
-        // Actually S3Util uploads to `key`.
-        // Let's double check what other controllers do.
-        // But for now, let's store the full URL or just the key.
-        // SettingsScreen: `if (photo.startsWith('http'))` -> return.
-        // So full URL is fine.
-        // Wait, S3Util returns `https://${bucket}.../${key}`.
-        // So we can assume full URL.
-        // We'll store the filename part if we want consistency with specific logic, but URL is safer.
-        // However, `photoUrls` in entity is `simple-array`.
-
-        // Let's just push the unique part of filename to avoid huge URLs if possible?
-        // No, sticking to what S3Util returns is safest unless we see evidence otherwise.
-        // But wait, `SettingsScreen` constructs URL if it's not http.
-        // 'https://zenzio-s3-bucket.s3.ap-south-1.amazonaws.com/images/restaurant/$photo'
-        // This implies restaurant photos are stored as filenames.
-        // For dining spaces, we should probably store full URLs to be independent.
-
-        // Wait, I should check if `CreateDiningSpaceDto` allows full URLs. Yes string array.
-        // Let's use the filenames (after dining-space/ prefix?)
-        // Actually `S3Util.uploadFile` returns the full URL.
-        // I will use that.
-
-        // BUT, `BookingViewModel` logic in frontend might expect something?
-        // Frontend just displays `photoUrls`.
-        // Let's use full URL.
         photoUrls.push(url);
       }
       createDiningSpaceDto.photoUrls = photoUrls;
@@ -76,18 +46,33 @@ export class DiningSpaceController {
     return this.diningSpaceService.create(createDiningSpaceDto);
   }
 
-  // Admin can create dining spaces for any restaurant (no auth required for admin)
   @Post('admin-create')
   @UseGuards(AccessTokenAuthGuard)
-  async createByAdmin(@Body() createDiningSpaceDto: CreateDiningSpaceDto) {
+  @UseInterceptors(FilesInterceptor('photos'))
+  async createByAdmin(
+    @Body() createDiningSpaceDto: CreateDiningSpaceDto,
+    @UploadedFiles() files: MulterFile[],
+  ) {
     if (!createDiningSpaceDto.restaurantId) {
-      throw new Error('restaurantId is required');
+      throw new BadRequestException('restaurantId is required');
     }
+
+    if (files && files.length > 0) {
+      const photoUrls: string[] = [];
+      for (const file of files) {
+        const key = `dining-space/${Date.now()}_${file.originalname}`;
+        const url = await this.s3Util.uploadFile(process.env.AWS_S3_BUCKET_NAME!, key, file);
+        photoUrls.push(url);
+      }
+      createDiningSpaceDto.photoUrls = photoUrls;
+    }
+
     const result = await this.diningSpaceService.create(createDiningSpaceDto);
     return {
       status: 'success',
       data: result,
-      message: 'Dining space created successfully by admin'
+      message: 'Dining space created successfully by admin',
+      meta: { timestamp: new Date().toISOString() },
     };
   }
 

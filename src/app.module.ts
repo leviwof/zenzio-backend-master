@@ -67,6 +67,7 @@ import { Banner } from './banners/banner.entity';
 import { GlobalSettingsModule } from './global-settings/global-settings.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthModule } from './health/health.module';
+import { CategoriesController } from './categories/categories.controller';
 
 @Module({
   imports: [
@@ -118,7 +119,7 @@ import { HealthModule } from './health/health.module';
 
     GlobalErrorModule.forRoot(),
   ],
-  controllers: [AppController, TestController],
+  controllers: [AppController, TestController, CategoriesController],
   providers: [
     AppService,
     VerificationClientMiddleware,

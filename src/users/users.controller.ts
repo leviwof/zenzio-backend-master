@@ -50,6 +50,11 @@ export class UsersController {
     private readonly userRepository: Repository<User>,
   ) { }
 
+  @Get('stats')
+  async getCustomerStats() {
+    return this.usersService.getCustomerStats();
+  }
+
   @Get()
   async getUsersWithAllDetails(
     @Query('page') page = 1,

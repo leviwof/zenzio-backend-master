@@ -63,9 +63,13 @@ export class RestaurantsController {
     private readonly profileService: RestaurantsService,
   ) { }
 
-  
-  
-  
+  @Get('cuisines')
+  @ApiOperation({ summary: 'Get all cuisine types from restaurant profiles' })
+  @ApiResponse({ status: 200, description: 'Cuisines fetched successfully' })
+  async getCuisineTypes() {
+    return this.restaurantService.getCuisineTypes();
+  }
+
   @UseGuards(FirebaseAuthGuard)
   @Get('firebase-profile')
   @ApiOperation({ summary: 'Get Firebase authenticated user profile' })

@@ -3,6 +3,7 @@ import {
   ConflictException,
   InternalServerErrorException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -128,5 +129,36 @@ export class EnumService {
       ...parent,
       children,
     };
+  }
+
+  async findAll(): Promise<EnumOption[]> {
+    return this.enumOptionRepository.find({
+      order: { category: 'ASC', orderyBy: 'ASC' },
+    });
+  }
+
+  async findOne(id: number): Promise<EnumOption | null> {
+    return this.enumOptionRepository.findOne({ where: { id } });
+  }
+
+  async update(id: number, updateEnumOptionDto: CreateEnumOptionDto): Promise<EnumOption | null> {
+    const enumOption = await this.findOne(id);
+    if (!enumOption) return null;
+
+    const { name, category } = updateEnumOptionDto;
+    const categoryNum = category ? parseInt(category, 10) : enumOption.category;
+
+    enumOption.name = name ?? enumOption.name;
+    enumOption.category = categoryNum;
+
+    return this.enumOptionRepository.save(enumOption);
+  }
+
+  async remove(id: number): Promise<boolean> {
+    const enumOption = await this.findOne(id);
+    if (!enumOption) return false;
+
+    await this.enumOptionRepository.remove(enumOption);
+    return true;
   }
 }
