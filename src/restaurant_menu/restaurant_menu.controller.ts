@@ -172,6 +172,7 @@ export class Restaurant_menuController {
   }
 
   @Post('admin-bulk-upload')
+  @UseGuards(AccessTokenAuthGuard)
   @UseInterceptors(FilesInterceptor('files', 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
   @ApiOperation({ summary: 'Admin bulk upload menu items from Excel/CSV file' })
   @ApiConsumes('multipart/form-data')
