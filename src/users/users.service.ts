@@ -492,8 +492,8 @@ export class UsersService {
 
   async getCustomerStats() {
     const totalCustomers = await this.userRepository.count();
-    const activeCustomers = await this.userRepository.count({ where: { isActive: 1 } });
-    const inactiveCustomers = await this.userRepository.count({ where: { isActive: 0 } });
+    const activeCustomers = await this.userRepository.count({ where: { isActive: true } });
+    const inactiveCustomers = await this.userRepository.count({ where: { isActive: false } });
 
     return {
       status: 'success',
