@@ -868,6 +868,82 @@ export class Restaurant_menuController {
 
 
 
+  @Patch('admin-edit/:menu_uid')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Admin edit menu item with optional image upload' })
+  @ApiResponse({ status: 200, description: 'Menu updated successfully' })
+  @ApiResponse({ status: 404, description: 'Menu not found' })
+  @UseInterceptors(FilesInterceptor('files'))
+  async adminEditMenu(
+    @Param('menu_uid') menu_uid: string,
+    @Body() data: any,
+    @UploadedFiles() files: MulterFile[],
+  ) {
+    try {
+      const existingMenu = await this.restaurant_menuService.findOneByUid(menu_uid);
+      if (!existingMenu) {
+        return {
+          status: 'error',
+          code: 404,
+          message: 'Menu not found',
+          meta: { timestamp: new Date().toISOString() },
+        };
+      }
+
+      let images: string[] = existingMenu.images && existingMenu.images.length > 0 ? existingMenu.images : [];
+      if (files && files.length > 0) {
+        const uploadResults = await this.fileService.uploadImagesForNewMenu(files, `admin-menu-${menu_uid}`);
+        images = uploadResults.map(r => r.url);
+      }
+
+      const menuData: any = {};
+      if (data.restaurant_uid !== undefined) menuData.restaurant_uid = data.restaurant_uid;
+      if (data.menu_name !== undefined) menuData.menu_name = data.menu_name;
+      if (data.price !== undefined) menuData.price = parseFloat(data.price) || 0;
+      if (data.discount !== undefined) menuData.discount = data.discount ? parseInt(data.discount, 10) : 0;
+      if (data.description !== undefined) menuData.description = data.description || null;
+      if (data.category !== undefined) menuData.category = data.category || null;
+      if (data.food_type !== undefined) menuData.food_type = data.food_type || 'Veg';
+      if (data.cuisine_type !== undefined) menuData.cuisine_type = data.cuisine_type || null;
+      if (data.isActive !== undefined) {
+        menuData.isActive = data.isActive === '1' || data.isActive === 'true' || data.isActive === true;
+        menuData.status = menuData.isActive;
+      }
+      if (images.length > 0) {
+        menuData.images = images;
+      }
+
+      console.log('📌 Admin editing menu with data:', menuData);
+
+      const updated = await this.restaurant_menuService.updateByUid(menu_uid, menuData);
+
+      if (!updated) {
+        return {
+          status: 'error',
+          code: 404,
+          message: 'Menu not found or update failed',
+          meta: { timestamp: new Date().toISOString() },
+        };
+      }
+
+      const updatedMenu = await this.restaurant_menuService.findOneByUid(menu_uid);
+
+      return {
+        status: 'success',
+        code: 200,
+        data: { restaurant_menu: updatedMenu },
+        message: 'Menu updated successfully by admin',
+        meta: { timestamp: new Date().toISOString() },
+      };
+    } catch (error: unknown) {
+      console.error('❌ Admin menu edit error:', error);
+      if (error instanceof Error) {
+        throw new BadRequestException(error.message);
+      }
+      throw new BadRequestException('Unexpected error occurred while updating menu');
+    }
+  }
+
   @Post('upload-image/:menu_uid')
   @ApiConsumes('multipart/form-data')
   @ApiBody({
