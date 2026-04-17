@@ -11,9 +11,6 @@ import { VerifyBankDto } from './dto/verify-bank.dto';
 export class RazorpayController {
   constructor(private readonly razorpayService: RazorpayService) {}
 
-  
-  
-  
   @Post('create-order')
   @ApiOperation({ summary: 'Create a Razorpay order' })
   @ApiBody({
@@ -34,9 +31,6 @@ export class RazorpayController {
     return this.razorpayService.createOrder(body.amount, body.restaurantUid, body.groupUid);
   }
 
-  
-  
-  
   @Post('auto-capture')
   @ApiOperation({ summary: 'Auto-capture a Razorpay payment' })
   @ApiBody({
@@ -56,9 +50,6 @@ export class RazorpayController {
     return this.razorpayService.autoCapturePayment(body.paymentId, body.amount);
   }
 
-  
-  
-  
   @Post('status')
   @ApiOperation({ summary: 'Check Razorpay payment status' })
   @ApiBody({
@@ -84,9 +75,6 @@ export class RazorpayController {
     return this.razorpayService.checkPaymentStatus(body.paymentId, body.orderId);
   }
 
-  
-  
-  
   @Post('verify')
   @ApiOperation({ summary: 'Verify Razorpay payment signature' })
   @ApiBody({
@@ -109,9 +97,6 @@ export class RazorpayController {
     return { verified };
   }
 
-  
-  
-  
   @Post('refund-partial')
   @ApiOperation({ summary: 'Initiate partial refund' })
   @ApiBody({
@@ -131,9 +116,6 @@ export class RazorpayController {
     return this.razorpayService.refundPartialPayment(body.paymentId, body.amount);
   }
 
-  
-  
-  
   @Post('refund-full')
   @ApiOperation({ summary: 'Initiate full refund' })
   @ApiBody({
@@ -152,9 +134,6 @@ export class RazorpayController {
     return this.razorpayService.refundFullPayment(body.paymentId);
   }
 
-  
-  
-  
   @Post('create-customer')
   @ApiOperation({ summary: 'Create Razorpay Customer' })
   @ApiBody({
@@ -183,9 +162,6 @@ export class RazorpayController {
     return this.razorpayService.listCustomers();
   }
 
-  
-  
-  
   @Post('add-bank')
   @ApiOperation({ summary: 'Add Bank Account for Customer (Fund Account)' })
   @ApiBody({
@@ -218,9 +194,6 @@ export class RazorpayController {
     return this.razorpayService.addBankAccount(customerId, name, ifsc, accountNumber);
   }
 
-  
-  
-  
   @Post('add-bank-contact')
   async addBankAccountToContact(
     @Body() body: { contactId: string; name: string; ifsc: string; accountNumber: string },
@@ -292,7 +265,7 @@ export class RazorpayController {
   }
 
   // ==========================================
-  // MASTER ADMIN PAYOUT APIS 
+  // MASTER ADMIN PAYOUT APIS
   // ==========================================
 
   @Post('admin/verify-and-link')
@@ -325,7 +298,9 @@ export class RazorpayController {
       },
     },
   })
-  async initiateAdminPayout(@Body() body: { uid: string; userType: 'fleet' | 'restaurant'; amount: number }) {
+  async initiateAdminPayout(
+    @Body() body: { uid: string; userType: 'fleet' | 'restaurant'; amount: number },
+  ) {
     if (!body.uid || !body.userType || !body.amount) {
       throw new BadRequestException('uid, userType, and amount are required');
     }

@@ -1,4 +1,9 @@
-export function buildNearestActiveRestaurantsQuery(filter: string = 'all', sort?: string, order: string = 'asc', search?: string): string {
+export function buildNearestActiveRestaurantsQuery(
+  filter: string = 'all',
+  sort?: string,
+  order: string = 'asc',
+  search?: string,
+): string {
   // Layer 1: Filtration Logic (The Subset)
   let whereFilter = '';
   let nextIndex = 6; // $1-$5 are lat, lng, radius, limit, offset
@@ -10,7 +15,8 @@ export function buildNearestActiveRestaurantsQuery(filter: string = 'all', sort?
   } else if (filter === 'new') {
     whereFilter = `AND res."createdAt" >= CURRENT_DATE - INTERVAL '30 days'`;
   } else if (filter === 'dining') {
-    whereFilter = 'AND res."isDiningEnabled" = TRUE AND EXISTS (SELECT 1 FROM dining_spaces ds WHERE ds."restaurantId" = res.restaurant_uid)';
+    whereFilter =
+      'AND res."isDiningEnabled" = TRUE AND EXISTS (SELECT 1 FROM dining_spaces ds WHERE ds."restaurantId" = res.restaurant_uid)';
   }
 
   if (search && search.trim().length > 0) {

@@ -33,7 +33,7 @@ export class AuthMeMiddleware implements NestMiddleware {
     private readonly superAdminService: SuperAdminService,
     private readonly fleetsService: FleetsService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   async use(req: RequestWithUser, res: Response, next: NextFunction) {
     let token = req.cookies.accessToken;

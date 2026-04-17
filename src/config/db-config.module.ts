@@ -52,4 +52,4 @@ import databaseConfig from './database.config';
     }),
   ],
 })
-export class DbConfigModule { }
+export class DbConfigModule {}

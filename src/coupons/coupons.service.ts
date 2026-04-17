@@ -12,7 +12,7 @@ export class CouponsService {
     private couponsRepository: Repository<Coupon>,
     @InjectRepository(Order)
     private orderRepository: Repository<Order>,
-  ) { }
+  ) {}
 
   async create(createCouponDto: CreateCouponDto): Promise<Coupon> {
     const existing = await this.couponsRepository.findOne({
@@ -26,8 +26,12 @@ export class CouponsService {
     return this.couponsRepository.save(coupon);
   }
 
-
-  async findAll(search?: string, status?: string, user_uid?: string, isAdmin: boolean = false): Promise<any[]> {
+  async findAll(
+    search?: string,
+    status?: string,
+    user_uid?: string,
+    isAdmin: boolean = false,
+  ): Promise<any[]> {
     const queryBuilder = this.couponsRepository.createQueryBuilder('coupon');
 
     if (search) {
@@ -47,14 +51,15 @@ export class CouponsService {
     // Role-based visibility logic
     if (user_uid) {
       // If fetching for a specific user, show public coupons + their private referral coupons
-      queryBuilder.andWhere(
-        '(coupon.source IS NULL OR coupon.assigned_to_uid = :uid)',
-        { uid: user_uid },
-      );
+      queryBuilder.andWhere('(coupon.source IS NULL OR coupon.assigned_to_uid = :uid)', {
+        uid: user_uid,
+      });
 
       // Force mobile users (non-admins) to ONLY see Active coupons
       if (!isAdmin) {
-        queryBuilder.andWhere('coupon.status = :activeStatus', { activeStatus: CouponStatus.ACTIVE });
+        queryBuilder.andWhere('coupon.status = :activeStatus', {
+          activeStatus: CouponStatus.ACTIVE,
+        });
       }
     } else {
       // Admin global view — exclude private Joinee/Reward coupons from the master list
@@ -82,8 +87,7 @@ export class CouponsService {
         const todayDateStr = now.toISOString().split('T')[0];
         const isDateValid = !coupon.endDate || todayDateStr <= String(coupon.endDate);
         const isStatusValid = coupon.status === 'Active';
-        const isGlobalLimitValid =
-          !coupon.usageLimit || coupon.redemptionCount < coupon.usageLimit;
+        const isGlobalLimitValid = !coupon.usageLimit || coupon.redemptionCount < coupon.usageLimit;
         const isUserLimitValid = usageCount < usageLimitPerUser;
 
         // New User Constraint Check
@@ -121,8 +125,6 @@ export class CouponsService {
 
     return coupons;
   }
-
-
 
   async getUsageCountForUser(code: string, user_uid: string): Promise<number> {
     return await this.orderRepository.count({
@@ -178,8 +180,6 @@ export class CouponsService {
     }
   }
 
-
-
   async findOne(id: string): Promise<Coupon> {
     const coupon = await this.couponsRepository.findOne({ where: { id } });
     if (!coupon) {
@@ -226,9 +226,7 @@ export class CouponsService {
     const coupon = await this.couponsRepository.findOne({ where: { code } });
     if (!coupon) return;
 
-
     coupon.redemptionCount = (Number(coupon.redemptionCount) || 0) + 1;
-
 
     if (coupon.usageLimit && coupon.redemptionCount >= coupon.usageLimit) {
       coupon.status = CouponStatus.INACTIVE;

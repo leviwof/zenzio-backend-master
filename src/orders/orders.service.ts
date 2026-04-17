@@ -1,4 +1,3 @@
-
 import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
@@ -18,7 +17,6 @@ import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.ent
 import { RestaurantDocument } from 'src/restaurants/entity/restaurant_document.entity';
 import { ReferralService } from 'src/referral/referral.service';
 
-
 @Injectable()
 export class OrdersService implements OnModuleInit {
   constructor(
@@ -34,8 +32,7 @@ export class OrdersService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly fileService: FileService,
     private readonly referralService: ReferralService,
-  ) { }
-
+  ) {}
 
   async onModuleInit() {
     try {
@@ -53,24 +50,19 @@ export class OrdersService implements OnModuleInit {
         UPDATE "orders" SET "estimated_time" = '5 min' WHERE "estimated_time" = '15 min' OR "estimated_time" = '15 mins';
         ALTER TABLE "orders" ALTER COLUMN "estimated_time" SET DEFAULT '5 min';
       `);
-      console.log(
-        '✅ [Migration] preparation time defaults and existing rows updated to 5 min',
-      );
+      console.log('✅ [Migration] preparation time defaults and existing rows updated to 5 min');
     } catch (error: any) {
       console.warn('⚠️ [Migration] Could not add status_timeline column:', error?.message || error);
     }
   }
 
-
   private generateOrderId(): string {
     return `ORD-${Date.now()}-${Math.floor(Math.random() * 0xffff).toString(16)}`;
   }
 
-
   private generateOTP(): string {
     return Math.floor(1000 + Math.random() * 9000).toString();
   }
-
 
   private calculatePrice(items: any[]): number {
     let total = 0;
@@ -82,14 +74,12 @@ export class OrdersService implements OnModuleInit {
     return total;
   }
 
-
   private generateComprehensiveTimeline(order: any): Array<{
     status: string;
     timestamp: string | null;
     message: string;
     updatedBy?: string;
   }> {
-
     const restaurantStatusOrder = ['new', 'accepted', 'preparing', 'ready'];
     const deliveryStatusOrder = [
       'new',
@@ -108,13 +98,11 @@ export class OrdersService implements OnModuleInit {
     const currentRestaurantIdx = restaurantStatusOrder.indexOf(currentRestaurantStatus);
     const currentDeliveryIdx = deliveryStatusOrder.indexOf(currentDeliveryStatus);
 
-
     const isCancelled =
       currentRestaurantStatus === 'cancelled' ||
       currentRestaurantStatus === 'rejected' ||
       currentDeliveryStatus === 'cancelled' ||
       currentDeliveryStatus === 'admin_cancelled';
-
 
     const isRestaurantStepCompleted = (stepStatus: string) => {
       const stepIdx = restaurantStatusOrder.indexOf(stepStatus);
@@ -126,15 +114,11 @@ export class OrdersService implements OnModuleInit {
       return stepIdx >= 0 && currentDeliveryIdx >= stepIdx;
     };
 
-
-
     const orderTime = new Date(order.time || order.createdAt);
-
 
     const addMinutes = (date: Date, minutes: number): string => {
       return new Date(date.getTime() + minutes * 60000).toISOString();
     };
-
 
     const timeline: Array<{
       status: string;
@@ -145,7 +129,6 @@ export class OrdersService implements OnModuleInit {
 
     let cumulativeMinutes = 0;
 
-
     timeline.push({
       status: 'PLACED',
       timestamp: orderTime.toISOString(),
@@ -153,45 +136,47 @@ export class OrdersService implements OnModuleInit {
       updatedBy: 'customer',
     });
 
-
     if (isRestaurantStepCompleted('accepted')) {
       cumulativeMinutes += 2;
     }
     timeline.push({
       status: 'ACCEPTED',
-      timestamp: isRestaurantStepCompleted('accepted') ? addMinutes(orderTime, cumulativeMinutes) : null,
+      timestamp: isRestaurantStepCompleted('accepted')
+        ? addMinutes(orderTime, cumulativeMinutes)
+        : null,
       message: isRestaurantStepCompleted('accepted')
         ? 'Order confirmed by restaurant'
         : 'Waiting for restaurant confirmation',
       updatedBy: 'restaurant',
     });
 
-
     if (isRestaurantStepCompleted('preparing')) {
       cumulativeMinutes += 10;
     }
     timeline.push({
       status: 'PREPARING',
-      timestamp: isRestaurantStepCompleted('preparing') ? addMinutes(orderTime, cumulativeMinutes) : null,
+      timestamp: isRestaurantStepCompleted('preparing')
+        ? addMinutes(orderTime, cumulativeMinutes)
+        : null,
       message: isRestaurantStepCompleted('preparing')
         ? 'Restaurant is preparing your order'
         : 'Waiting for preparation to start',
       updatedBy: 'restaurant',
     });
 
-
     if (isRestaurantStepCompleted('ready')) {
       cumulativeMinutes += 5;
     }
     timeline.push({
       status: 'READY',
-      timestamp: isRestaurantStepCompleted('ready') ? addMinutes(orderTime, cumulativeMinutes) : null,
+      timestamp: isRestaurantStepCompleted('ready')
+        ? addMinutes(orderTime, cumulativeMinutes)
+        : null,
       message: isRestaurantStepCompleted('ready')
         ? 'Order is ready for pickup'
         : 'Waiting for order to be ready',
       updatedBy: 'restaurant',
     });
-
 
     const hasDeliveryPartner = !!order.delivery_partner_uid;
     if (hasDeliveryPartner && isDeliveryStepCompleted('assigned')) {
@@ -199,53 +184,57 @@ export class OrdersService implements OnModuleInit {
     }
     timeline.push({
       status: 'ASSIGNED',
-      timestamp: hasDeliveryPartner && isDeliveryStepCompleted('assigned') ? addMinutes(orderTime, cumulativeMinutes) : null,
+      timestamp:
+        hasDeliveryPartner && isDeliveryStepCompleted('assigned')
+          ? addMinutes(orderTime, cumulativeMinutes)
+          : null,
       message: hasDeliveryPartner
         ? 'Delivery partner assigned'
         : 'Waiting for delivery partner assignment',
       updatedBy: 'system',
     });
 
-
     if (isDeliveryStepCompleted('picked_up')) {
       cumulativeMinutes += 5;
     }
     timeline.push({
       status: 'PICKED_UP',
-      timestamp: isDeliveryStepCompleted('picked_up') ? addMinutes(orderTime, cumulativeMinutes) : null,
+      timestamp: isDeliveryStepCompleted('picked_up')
+        ? addMinutes(orderTime, cumulativeMinutes)
+        : null,
       message: isDeliveryStepCompleted('picked_up')
         ? 'Order picked up by delivery partner'
         : 'Waiting for pickup',
       updatedBy: 'delivery_partner',
     });
 
-
     if (isDeliveryStepCompleted('out_for_delivery')) {
       cumulativeMinutes += 2;
     }
     timeline.push({
       status: 'OUT_FOR_DELIVERY',
-      timestamp: isDeliveryStepCompleted('out_for_delivery') ? addMinutes(orderTime, cumulativeMinutes) : null,
+      timestamp: isDeliveryStepCompleted('out_for_delivery')
+        ? addMinutes(orderTime, cumulativeMinutes)
+        : null,
       message: isDeliveryStepCompleted('out_for_delivery')
         ? 'Order is out for delivery'
         : 'Waiting for delivery to start',
       updatedBy: 'delivery_partner',
     });
 
-
     if (currentDeliveryStatus === 'delivered') {
       cumulativeMinutes += 15;
     }
     timeline.push({
       status: 'DELIVERED',
-      timestamp: currentDeliveryStatus === 'delivered' ? addMinutes(orderTime, cumulativeMinutes) : null,
+      timestamp:
+        currentDeliveryStatus === 'delivered' ? addMinutes(orderTime, cumulativeMinutes) : null,
       message:
         currentDeliveryStatus === 'delivered'
           ? 'Order delivered successfully'
           : 'Waiting for delivery',
       updatedBy: 'delivery_partner',
     });
-
 
     if (isCancelled) {
       let cancelMessage = 'Order cancelled';
@@ -273,28 +262,53 @@ export class OrdersService implements OnModuleInit {
     return timeline;
   }
 
-
   private buildCompleteTimeline(order: any): Array<{
     status: string;
     timestamp: string | null;
     message: string;
     updatedBy?: string;
   }> {
-
     const timelineTemplate = [
       { status: 'PLACED', message: 'Order placed successfully', updatedBy: 'customer' },
       { status: 'ACCEPTED', message: 'Order confirmed by restaurant', updatedBy: 'restaurant' },
-      { status: 'PREPARING', message: 'Restaurant is preparing your order', updatedBy: 'restaurant' },
+      {
+        status: 'PREPARING',
+        message: 'Restaurant is preparing your order',
+        updatedBy: 'restaurant',
+      },
       { status: 'READY', message: 'Order is ready for pickup', updatedBy: 'restaurant' },
       { status: 'ASSIGNED', message: 'Delivery partner assigned', updatedBy: 'system' },
-      { status: 'ON_THE_WAY_TO_RESTAURANT', message: 'Delivery partner is on the way to restaurant', updatedBy: 'delivery_partner' },
-      { status: 'REACHED_RESTAURANT', message: 'Delivery partner has reached the restaurant', updatedBy: 'delivery_partner' },
-      { status: 'PICKED_UP', message: 'Order picked up by delivery partner', updatedBy: 'delivery_partner' },
-      { status: 'OUT_FOR_DELIVERY', message: 'Order is out for delivery', updatedBy: 'delivery_partner' },
-      { status: 'ON_THE_WAY_TO_CUSTOMER', message: 'Delivery partner is on the way to customer', updatedBy: 'delivery_partner' },
-      { status: 'DELIVERED', message: 'Order delivered successfully', updatedBy: 'delivery_partner' },
+      {
+        status: 'ON_THE_WAY_TO_RESTAURANT',
+        message: 'Delivery partner is on the way to restaurant',
+        updatedBy: 'delivery_partner',
+      },
+      {
+        status: 'REACHED_RESTAURANT',
+        message: 'Delivery partner has reached the restaurant',
+        updatedBy: 'delivery_partner',
+      },
+      {
+        status: 'PICKED_UP',
+        message: 'Order picked up by delivery partner',
+        updatedBy: 'delivery_partner',
+      },
+      {
+        status: 'OUT_FOR_DELIVERY',
+        message: 'Order is out for delivery',
+        updatedBy: 'delivery_partner',
+      },
+      {
+        status: 'ON_THE_WAY_TO_CUSTOMER',
+        message: 'Delivery partner is on the way to customer',
+        updatedBy: 'delivery_partner',
+      },
+      {
+        status: 'DELIVERED',
+        message: 'Order delivered successfully',
+        updatedBy: 'delivery_partner',
+      },
     ];
-
 
     const restaurantStatusOrder = ['new', 'accepted', 'preparing', 'ready'];
     const deliveryStatusOrder = [
@@ -315,15 +329,12 @@ export class OrdersService implements OnModuleInit {
     const currentRestaurantIdx = restaurantStatusOrder.indexOf(currentRestaurantStatus);
     const currentDeliveryIdx = deliveryStatusOrder.indexOf(currentDeliveryStatus);
 
-
     const storedTimeline = order.status_timeline || [];
-
 
     const storedMap = new Map<string, any>();
     storedTimeline.forEach((entry: any) => {
       storedMap.set(entry.status.toUpperCase(), entry);
     });
-
 
     let lastCompletedTimestamp = new Date().toISOString();
     if (order.time || order.createdAt) {
@@ -334,7 +345,6 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
     const completeTimeline = timelineTemplate.map((template, index) => {
       const statusKey = template.status.toUpperCase();
       const stored = storedMap.get(statusKey);
@@ -344,18 +354,13 @@ export class OrdersService implements OnModuleInit {
       let finalUpdatedBy = template.updatedBy;
 
       if (stored) {
-
         finalTimestamp = stored.timestamp;
         finalMessage = stored.message || template.message;
         finalUpdatedBy = stored.updatedBy || template.updatedBy;
       } else {
-
-
-
-        const isLaterStepCompleted = timelineTemplate.slice(index + 1).some(futureStep =>
-          storedMap.has(futureStep.status.toUpperCase())
-        );
-
+        const isLaterStepCompleted = timelineTemplate
+          .slice(index + 1)
+          .some((futureStep) => storedMap.has(futureStep.status.toUpperCase()));
 
         const isRestaurantStep = ['ACCEPTED', 'PREPARING', 'READY'].includes(statusKey);
         const isDeliveryStep = [
@@ -365,7 +370,7 @@ export class OrdersService implements OnModuleInit {
           'PICKED_UP',
           'OUT_FOR_DELIVERY',
           'ON_THE_WAY_TO_CUSTOMER',
-          'DELIVERED'
+          'DELIVERED',
         ].includes(statusKey);
 
         let impliedByEntityStatus = false;
@@ -383,13 +388,11 @@ export class OrdersService implements OnModuleInit {
         }
 
         if (isLaterStepCompleted || impliedByEntityStatus) {
-
           const isCurrentStatus =
-            (statusKey === currentRestaurantStatus.toUpperCase()) ||
-            (statusKey === currentDeliveryStatus.toUpperCase());
+            statusKey === currentRestaurantStatus.toUpperCase() ||
+            statusKey === currentDeliveryStatus.toUpperCase();
 
           if (isCurrentStatus && !isLaterStepCompleted && order.updatedAt) {
-
             try {
               finalTimestamp = new Date(order.updatedAt).toISOString();
             } catch (e) {
@@ -401,11 +404,6 @@ export class OrdersService implements OnModuleInit {
         }
       }
 
-
-
-
-
-
       return {
         status: template.status,
         timestamp: finalTimestamp,
@@ -414,11 +412,9 @@ export class OrdersService implements OnModuleInit {
       };
     });
 
-
     const isCancelled = storedTimeline.some((entry: any) =>
-      ['CANCELLED', 'REJECTED'].includes(entry.status.toUpperCase())
+      ['CANCELLED', 'REJECTED'].includes(entry.status.toUpperCase()),
     );
-
 
     const entityCancelled =
       ['cancelled', 'rejected'].includes(currentRestaurantStatus) ||
@@ -426,16 +422,15 @@ export class OrdersService implements OnModuleInit {
 
     if (isCancelled || entityCancelled) {
       let cancelEntry = storedTimeline.find((entry: any) =>
-        ['CANCELLED', 'REJECTED'].includes(entry.status.toUpperCase())
+        ['CANCELLED', 'REJECTED'].includes(entry.status.toUpperCase()),
       );
-
 
       if (!cancelEntry && entityCancelled) {
         cancelEntry = {
           status: 'CANCELLED',
           timestamp: order.updatedAt || new Date().toISOString(),
           message: 'Order cancelled',
-          updatedBy: 'system'
+          updatedBy: 'system',
         };
       }
 
@@ -452,17 +447,13 @@ export class OrdersService implements OnModuleInit {
     return completeTimeline;
   }
 
-
-
   async create(dto: CreateOrderDto) {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
     }
 
-
     const rawItemTotal = dto.item_total ?? this.calculatePrice(dto.items);
     const itemTotal = Number(rawItemTotal.toFixed(2));
-
 
     const deliveryFee = Number((dto.delivery_fee ?? 0).toFixed(2));
 
@@ -478,9 +469,11 @@ export class OrdersService implements OnModuleInit {
     const isGstRegistered = Boolean(restaurantDoc?.gst_number?.toString().trim());
     const taxes = isGstRegistered ? Number((dto.taxes ?? itemTotal * 0.05).toFixed(2)) : 0;
 
-    const adminCommission = Number((itemTotal - (itemTotal / 1.08)).toFixed(2));
+    const adminCommission = Number((itemTotal - itemTotal / 1.08).toFixed(2));
 
-    const grandTotal = Number((dto.price ?? itemTotal + deliveryFee + taxes + packingCharge).toFixed(2));
+    const grandTotal = Number(
+      (dto.price ?? itemTotal + deliveryFee + taxes + packingCharge).toFixed(2),
+    );
 
     console.log('📦 [DEBUG] Order Creation - Incoming Location:', {
       customer: dto.customer,
@@ -528,13 +521,10 @@ export class OrdersService implements OnModuleInit {
 
     const savedOrder = await this.orderRepo.save(order);
 
-
     try {
-
       if (dto.customer) {
         await this.notificationService.notifyOrderConfirmed(dto.customer, savedOrder.orderId);
       }
-
 
       if (dto.restaurant_uid) {
         const customerName = dto.customer_name || 'Customer';
@@ -552,18 +542,15 @@ export class OrdersService implements OnModuleInit {
     return savedOrder;
   }
 
-
   async findAll() {
     return this.orderRepo.find({
       order: { time: 'DESC' as any },
     });
   }
 
-
   async findByCustomer(customerUid: string) {
     try {
       console.log(`📦 [findByCustomer] Fetching orders for customer: ${customerUid}`);
-
 
       const orders = await this.orderRepo.query(
         `SELECT * FROM "orders" WHERE customer = $1 AND "restaurantStatus" != 'pending_payment' ORDER BY "time" DESC LIMIT 50`,
@@ -572,11 +559,9 @@ export class OrdersService implements OnModuleInit {
 
       console.log(`📦 [findByCustomer] Found ${orders.length} orders for customer: ${customerUid}`);
 
-
       const ordersWithRestaurantNames = await Promise.all(
         orders.map(async (order) => {
           let restaurantName = 'Unknown Restaurant';
-
 
           if (order.restaurant_uid) {
             try {
@@ -611,8 +596,6 @@ export class OrdersService implements OnModuleInit {
     }
   }
 
-
-
   async findAllOrders(options?: {
     status?: string;
     search?: string;
@@ -623,7 +606,6 @@ export class OrdersService implements OnModuleInit {
       const { status, search, startDate, endDate } = options || {};
       const params: any[] = [];
       let whereClause = 'WHERE 1=1';
-
 
       if (status && status !== 'All') {
         if (status === 'Pending') {
@@ -637,20 +619,16 @@ export class OrdersService implements OnModuleInit {
         }
       }
 
-
       if (startDate) {
         params.push(startDate);
         whereClause += ` AND o."createdAt" >= $${params.length}`;
       }
       if (endDate) {
-
-
         const endD = new Date(endDate);
         endD.setDate(endD.getDate() + 1);
         params.push(endD.toISOString().split('T')[0]);
         whereClause += ` AND o."createdAt" < $${params.length}`;
       }
-
 
       if (search) {
         params.push(`%${search}%`);
@@ -662,8 +640,6 @@ export class OrdersService implements OnModuleInit {
           rp.restaurant_name ILIKE $${idx}
         )`;
       }
-
-
 
       const orders = await this.orderRepo.query(
         `
@@ -689,10 +665,8 @@ export class OrdersService implements OnModuleInit {
     }
   }
 
-
   async findOne(id: string, customerUid?: string) {
     try {
-
       const result = await this.orderRepo.query(`SELECT * FROM "orders" WHERE "orderId" = $1`, [
         id,
       ]);
@@ -703,11 +677,9 @@ export class OrdersService implements OnModuleInit {
 
       const order = result[0];
 
-
       if (customerUid && order.customer !== customerUid) {
         throw new NotFoundException('Order not found');
       }
-
 
       let restaurantName = 'Unknown Restaurant';
 
@@ -766,7 +738,6 @@ export class OrdersService implements OnModuleInit {
 
     const dbOrder = res[0];
 
-
     try {
       const cachedLoc = await this.redisService.get<{ lat: number; lng: number }>(
         `delivery:loc:${orderId}`,
@@ -774,7 +745,6 @@ export class OrdersService implements OnModuleInit {
       if (cachedLoc) {
         dbOrder.delivery_lat = cachedLoc.lat;
         dbOrder.delivery_lng = cachedLoc.lng;
-
       }
     } catch (e) {
       console.warn('Redis fetch failed for location, using DB fallback');
@@ -783,20 +753,16 @@ export class OrdersService implements OnModuleInit {
     return dbOrder;
   }
 
-
   async updateRestaurantStatus(id: string, dto: UpdateRestaurantStatusDto) {
     const order = await this.findOne(id);
     const previousStatus = order.restaurantStatus;
     order.restaurantStatus = dto.status;
 
-
     if (dto.estimated_time) {
       order.estimated_time = dto.estimated_time;
     } else if (dto.status === 'accepted' && !order.estimated_time) {
-
       order.estimated_time = '5 min';
     }
-
 
     if (dto.status === 'picked_up' || dto.status === 'out_for_delivery') {
       if (!order.delivery_partner_uid) {
@@ -805,7 +771,6 @@ export class OrdersService implements OnModuleInit {
 
       order.deliveryPartnerStatus = dto.status;
     }
-
 
     const currentTimestamp = new Date().toISOString();
     const statusMessages: Record<string, string> = {
@@ -832,10 +797,8 @@ export class OrdersService implements OnModuleInit {
 
     const savedOrder = await this.orderRepo.save(order);
 
-
     try {
       if (dto.status === 'accepted' && previousStatus !== 'accepted') {
-
         if (order.customer) {
           const restaurantName = order.restaurant_name || 'Restaurant';
           await this.notificationService.notifyOrderAccepted(
@@ -844,7 +807,6 @@ export class OrdersService implements OnModuleInit {
             restaurantName,
           );
         }
-
 
         if (order.restaurant_uid) {
           const restaurantName = order.restaurant_name || 'Restaurant';
@@ -860,7 +822,6 @@ export class OrdersService implements OnModuleInit {
         previousStatus !== 'picked_up' &&
         previousStatus !== 'out_for_delivery'
       ) {
-
         if (order.customer) {
           await this.notificationService.notifyOrderOutForDelivery(order.customer, order.orderId);
         }
@@ -872,12 +833,10 @@ export class OrdersService implements OnModuleInit {
     return savedOrder;
   }
 
-
   async updateDeliveryStatus(id: string, dto: UpdateDeliveryStatusDto) {
     const order = await this.findOne(id);
     const previousStatus = order.deliveryPartnerStatus;
     order.deliveryPartnerStatus = dto.status;
-
 
     const currentTimestamp = new Date().toISOString();
     const statusMessages: Record<string, string> = {
@@ -905,19 +864,16 @@ export class OrdersService implements OnModuleInit {
 
     const savedOrder = await this.orderRepo.save(order);
 
-
     try {
       if (
         (dto.status === 'picked_up' || dto.status === 'out_for_delivery') &&
         previousStatus !== 'picked_up' &&
         previousStatus !== 'out_for_delivery'
       ) {
-
         if (order.customer) {
           await this.notificationService.notifyOrderOutForDelivery(order.customer, order.orderId);
         }
       } else if (dto.status === 'delivered' && previousStatus !== 'delivered') {
-
         if (order.customer) {
           await this.notificationService.notifyOrderDelivered(order.customer, order.orderId);
           await this.referralService.handleOrderDelivered(order.customer, order.orderId);
@@ -930,11 +886,8 @@ export class OrdersService implements OnModuleInit {
     return savedOrder;
   }
 
-
   async updateDeliveryLocation(id: string, lat: number, lng: number) {
-
     await this.redisService.set(`delivery:loc:${id}`, { lat, lng }, 3600);
-
 
     const lastUpdateKey = `delivery:loc:last_db_success:${id}`;
     const lastUpdate = await this.redisService.get(lastUpdateKey);
@@ -952,7 +905,6 @@ export class OrdersService implements OnModuleInit {
         await this.redisService.set(lastUpdateKey, now.toString(), 3600);
         console.log(`💾 Persisted location for ${id} to DB`);
       } catch (e: any) {
-
         console.warn('⚠️ DB Location Update Failed (Redis is Live):', e.message);
       }
     }
@@ -960,21 +912,14 @@ export class OrdersService implements OnModuleInit {
     return { status: 'success', lat, lng };
   }
 
-
-
-
   async updateDeliveryStatusByAdmin(id: string, dto: UpdateDeliveryStatusDto, reason?: string) {
-
     const order = await this.findOne(id);
     const previousStatus = order.deliveryPartnerStatus;
     const newStatus = dto.status;
 
-
     const isCancellation = newStatus === 'cancelled' || newStatus === 'admin_cancelled';
 
-
     const currentTimestamp = new Date().toISOString();
-
 
     const newTimelineEntry = {
       status: newStatus.toUpperCase(),
@@ -985,35 +930,28 @@ export class OrdersService implements OnModuleInit {
       updatedBy: 'admin',
     };
 
-
     const existingTimeline = order.status_timeline || [];
-
 
     const updateData: any = {
       deliveryPartnerStatus: newStatus,
       status_timeline: [...existingTimeline, newTimelineEntry],
     };
 
-
     if (isCancellation) {
       updateData.status = 'cancelled';
       updateData.restaurantStatus = 'cancelled';
     }
 
-
     await this.orderRepo.update({ orderId: id }, updateData);
-
 
     if (order.delivery_partner_uid) {
       try {
-
         const deliveryHistory = await this.deliveryHistoryRepo.findOne({
           where: { order_id: id },
         });
 
         if (deliveryHistory) {
           deliveryHistory.status = DeliveryStatus.CANCELLED;
-
 
           if (!deliveryHistory.status_history) {
             deliveryHistory.status_history = [];
@@ -1033,13 +971,10 @@ export class OrdersService implements OnModuleInit {
         }
       } catch (historyError) {
         console.warn('⚠️ Could not update delivery_history:', historyError);
-
       }
     }
 
-
     const updatedOrder = await this.findOne(id);
-
 
     try {
       if (isCancellation) {
@@ -1047,7 +982,6 @@ export class OrdersService implements OnModuleInit {
         console.log(`   Customer UID: ${order.customer}`);
         console.log(`   Restaurant UID: ${order.restaurant_uid}`);
         console.log(`   Delivery Partner UID: ${order.delivery_partner_uid}`);
-
 
         if (order.customer) {
           console.log(
@@ -1060,7 +994,6 @@ export class OrdersService implements OnModuleInit {
           );
         }
 
-
         if (order.restaurant_uid) {
           console.log(
             `📱 [ADMIN] Sending cancellation notification to restaurant: ${order.restaurant_uid}`,
@@ -1071,7 +1004,6 @@ export class OrdersService implements OnModuleInit {
             reason,
           );
         }
-
 
         if (order.delivery_partner_uid) {
           console.log(
@@ -1088,7 +1020,6 @@ export class OrdersService implements OnModuleInit {
           `✅ [ADMIN] Delivery cancelled for order ${order.orderId}. Reason: ${reason || 'No reason provided'}`,
         );
       } else {
-
         if (order.delivery_partner_uid) {
           await this.notificationService.notifyDeliveryPartnerStatusChangedByAdmin(
             order.delivery_partner_uid,
@@ -1096,7 +1027,6 @@ export class OrdersService implements OnModuleInit {
             newStatus,
           );
         }
-
 
         if (
           (newStatus === 'picked_up' || newStatus === 'out_for_delivery') &&
@@ -1125,9 +1055,7 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
-
   async getOrderDetailsForRestaurant(orderId: string) {
-
     const orderResult = await this.orderRepo.query(`SELECT * FROM "orders" WHERE "orderId" = $1`, [
       orderId,
     ]);
@@ -1137,7 +1065,6 @@ export class OrdersService implements OnModuleInit {
     }
 
     const order = orderResult[0];
-
 
     let customerDetails: { uid: string; email: string; phone: string; name: string } | null = null;
     if (order.customer) {
@@ -1159,7 +1086,6 @@ export class OrdersService implements OnModuleInit {
         console.error('Error fetching customer details:', error);
       }
     }
-
 
     let deliveryPartnerDetails: {
       uid: string;
@@ -1198,7 +1124,6 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
     let restaurantName = 'Unknown Restaurant';
     if (order.restaurant_uid) {
       try {
@@ -1218,14 +1143,10 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
-
-
     const rawItemTotal = Number(order.item_total) || 0;
     const baseFoodValue = Number((rawItemTotal / 1.08).toFixed(2));
     const restaurantCommission = Number((baseFoodValue * 0.08).toFixed(2));
     const restaurantTotal = Number((baseFoodValue + restaurantCommission).toFixed(2));
-
 
     let items = order.items || [];
     if (typeof items === 'string') {
@@ -1237,9 +1158,9 @@ export class OrdersService implements OnModuleInit {
     }
     const markedDownItems = Array.isArray(items)
       ? items.map((item) => ({
-        ...item,
-        price: Number((Number(item.price) / 1.08).toFixed(2)),
-      }))
+          ...item,
+          price: Number((Number(item.price) / 1.08).toFixed(2)),
+        }))
       : [];
 
     return {
@@ -1274,9 +1195,7 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
-
   async getOrderDetailsForAdmin(orderId: string) {
-
     const orderResult = await this.orderRepo.query(`SELECT * FROM "orders" WHERE "orderId" = $1`, [
       orderId,
     ]);
@@ -1287,8 +1206,7 @@ export class OrdersService implements OnModuleInit {
 
     const order = orderResult[0];
 
-
-    let customerDetails = {
+    const customerDetails = {
       name: 'Guest',
       customerId: order.customer || 'N/A',
       email: 'N/A',
@@ -1309,11 +1227,10 @@ export class OrdersService implements OnModuleInit {
           customerDetails.mobile = customerResult[0].encryptedPhone;
         }
 
-
         try {
           const profileResult = await this.orderRepo.manager.query(
             `SELECT "firstName", "lastName" FROM "user_profile" WHERE "userUid" = $1`,
-            [order.customer]
+            [order.customer],
           );
           if (profileResult && profileResult.length > 0) {
             const { firstName, lastName } = profileResult[0];
@@ -1321,15 +1238,11 @@ export class OrdersService implements OnModuleInit {
               customerDetails.name = `${firstName || ''} ${lastName || ''}`.trim();
             }
           }
-        } catch (e) {
-
-        }
-
+        } catch (e) {}
       } catch (error) {
         console.error('Error fetching customer details:', error);
       }
     }
-
 
     let deliveryPartnerDetails: any = null;
     if (order.delivery_partner_uid) {
@@ -1365,8 +1278,7 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
-    let restaurantInfo = {
+    const restaurantInfo = {
       name: 'Unknown Restaurant',
       email: 'N/A',
       mobile: 'N/A',
@@ -1396,7 +1308,6 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
     const itemTotal = Number(order.item_total) || 0;
     const taxes = Number(order.taxes) || 0;
     const deliveryCharge = Number(order.delivery_fee) || 0;
@@ -1405,9 +1316,7 @@ export class OrdersService implements OnModuleInit {
     const grandTotal = Number(order.price) || 0;
     const adminEarnings = Number((adminCommission + deliveryCharge).toFixed(2));
 
-
-    let timeline = this.buildCompleteTimeline(order);
-
+    const timeline = this.buildCompleteTimeline(order);
 
     const completedEntries = timeline.filter((entry: any) => entry.timestamp);
     const latestTimelineEntry =
@@ -1491,7 +1400,6 @@ export class OrdersService implements OnModuleInit {
        ORDER BY o."time" DESC`,
     );
 
-
     if (userLat && userLng) {
       const enrichedOrders = orders.map((order: any) => {
         const pickupLat = parseFloat(order.pickup_lat);
@@ -1508,9 +1416,7 @@ export class OrdersService implements OnModuleInit {
         };
       });
 
-
       const filtered = enrichedOrders.filter((o: any) => o.distance_from_partner_km <= 7.0);
-
 
       filtered.sort((a: any, b: any) => a.distance_from_partner_km - b.distance_from_partner_km);
 
@@ -1532,9 +1438,9 @@ export class OrdersService implements OnModuleInit {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.deg2rad(lat1)) *
-      Math.cos(this.deg2rad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -1542,7 +1448,6 @@ export class OrdersService implements OnModuleInit {
   private deg2rad(deg: number): number {
     return deg * (Math.PI / 180);
   }
-
 
   async assignDeliveryPartner(orderId: string, partnerUid: string, partnerName?: string) {
     const order = await this.findOne(orderId);
@@ -1553,7 +1458,6 @@ export class OrdersService implements OnModuleInit {
 
     order.delivery_partner_uid = partnerUid;
     order.deliveryPartnerStatus = 'assigned';
-
 
     const currentTimestamp = new Date().toISOString();
     const deliveryPartnerDisplayName = partnerName || 'Delivery Partner';
@@ -1570,13 +1474,10 @@ export class OrdersService implements OnModuleInit {
     }
     order.status_timeline.push(newTimelineEntry);
 
-
     const savedOrder = await this.orderRepo.save(order);
-
 
     try {
       const deliveryPartnerDisplayName = partnerName || 'Delivery Partner';
-
 
       if (order.customer) {
         await this.notificationService.notifyDeliveryAssigned(
@@ -1585,7 +1486,6 @@ export class OrdersService implements OnModuleInit {
           deliveryPartnerDisplayName,
         );
       }
-
 
       if (order.restaurant_uid) {
         await this.notificationService.notifyRestaurantDeliveryAssigned(
@@ -1600,7 +1500,6 @@ export class OrdersService implements OnModuleInit {
 
     return savedOrder;
   }
-
 
   async findByDeliveryPartner(partnerUid: string) {
     return this.orderRepo.query(
@@ -1626,7 +1525,6 @@ export class OrdersService implements OnModuleInit {
     );
   }
 
-
   async findOneForDelivery(orderId: string) {
     const res = await this.orderRepo.query(
       `SELECT 
@@ -1649,7 +1547,6 @@ export class OrdersService implements OnModuleInit {
     return res[0];
   }
 
-
   async sendDeliveryOtp(orderId: string, phone?: string) {
     const order = await this.orderRepo.findOne({ where: { orderId } });
     if (!order) throw new NotFoundException('Order not found');
@@ -1659,7 +1556,6 @@ export class OrdersService implements OnModuleInit {
       await this.orderRepo.save(order);
     }
 
-
     let customerPhone = phone;
     if (!customerPhone && order.customer) {
       const enriched = await this.findOneForDelivery(orderId);
@@ -1667,9 +1563,6 @@ export class OrdersService implements OnModuleInit {
     }
 
     console.log(`📨 Sending OTP ${order.user_otp} to ${customerPhone || 'Customer'}`);
-
-
-
 
     return {
       status: 'success',
@@ -1679,27 +1572,20 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
-
   async verifyDeliveryOtp(orderId: string, otp: string) {
     console.log(`🚀 [DEBUG] verifyDeliveryOtp called for Order: ${orderId}`);
     const order = await this.orderRepo.findOne({ where: { orderId } });
     if (!order) throw new NotFoundException('Order not found');
 
     if (order.user_otp !== otp) {
-
-
       throw new BadRequestException('Invalid OTP');
     }
-
 
     order.deliveryPartnerStatus = 'delivered';
     order.status = 'completed';
     order.restaurantStatus = 'completed';
 
     await this.orderRepo.save(order);
-
-
-
 
     console.log(`🔍 [DEBUG] Syncing DeliveryHistory for Order ${orderId}`);
     const history = await this.deliveryHistoryRepo.findOne({ where: { order_id: orderId } });
@@ -1729,7 +1615,6 @@ export class OrdersService implements OnModuleInit {
       console.warn(`⚠️ [DEBUG] No DeliveryHistory found for order_id: ${orderId} in OrdersService`);
     }
 
-
     if (order.customer) {
       await this.notificationService.notifyOrderDelivered(order.customer, order.orderId);
     }
@@ -1741,8 +1626,6 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
-
-
   async completeDelivery(
     orderId: string,
     notes?: string,
@@ -1752,12 +1635,10 @@ export class OrdersService implements OnModuleInit {
     const order = await this.orderRepo.findOne({ where: { orderId } });
     if (!order) throw new NotFoundException('Order not found');
 
-
     if (order.deliveryPartnerStatus !== 'delivered') {
       order.deliveryPartnerStatus = 'delivered';
     }
     order.status = 'completed';
-
 
     if (deliveryPhoto) {
       try {
@@ -1766,7 +1647,6 @@ export class OrdersService implements OnModuleInit {
         console.log(`📸 Delivery proof uploaded: ${uploadResult.url}`);
       } catch (err) {
         console.error('❌ Failed to upload delivery proof:', err);
-
       }
     }
 
@@ -1774,16 +1654,10 @@ export class OrdersService implements OnModuleInit {
       order.notes = notes;
     }
 
-
     if (paymentCollected && order.payment_mode === 'COD') {
-
-
     }
 
     await this.orderRepo.save(order);
-
-
-
 
     console.log(`🔍 [DEBUG] completeDelivery: Syncing DeliveryHistory for Order ${orderId}`);
     const history = await this.deliveryHistoryRepo.findOne({ where: { order_id: orderId } });
@@ -1793,7 +1667,6 @@ export class OrdersService implements OnModuleInit {
         history.status = DeliveryStatus.DELIVERED;
         history.delivered_at = new Date();
 
-
         if (history.accepted_at && !history.actual_time_min) {
           const acceptedTime = new Date(history.accepted_at).getTime();
           const deliveredTime = new Date().getTime();
@@ -1802,8 +1675,6 @@ export class OrdersService implements OnModuleInit {
       }
       if (notes) history.delivery_notes = notes;
       if (paymentCollected !== undefined) history.payment_collected = paymentCollected;
-
-
 
       await this.deliveryHistoryRepo.save(history);
       console.log(`✅ [DEBUG] completeDelivery: DeliveryHistory updated.`);
@@ -1821,9 +1692,7 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
-
   async getAnalytics(restaurantUid: string, period: string) {
-
     const now = new Date();
     const startDate = new Date();
 
@@ -1844,7 +1713,6 @@ export class OrdersService implements OnModuleInit {
         startDate.setDate(now.getDate() - 7);
     }
 
-
     const orders = await this.orderRepo.find({
       where: {
         restaurant_uid: restaurantUid,
@@ -1852,7 +1720,6 @@ export class OrdersService implements OnModuleInit {
       },
       order: { createdAt: 'ASC' },
     });
-
 
     let totalSales = 0;
     let totalOrders = 0;
@@ -1868,21 +1735,17 @@ export class OrdersService implements OnModuleInit {
       const amt = Number(order.price) || 0;
       totalSales += amt;
 
-
       const dateKey = order.createdAt.toISOString().split('T')[0];
       salesBreakdown[dateKey] = (salesBreakdown[dateKey] || 0) + amt;
 
-
       const hour = new Date(order.createdAt).getHours();
       peakHours[hour] = (peakHours[hour] || 0) + 1;
-
 
       if (order.delivery_partner_uid || order.delivery_fee > 0) {
         orderBreakdown.delivery++;
       } else {
         orderBreakdown.pickup++;
       }
-
 
       if (order.items && Array.isArray(order.items)) {
         for (const item of order.items) {
@@ -1899,7 +1762,6 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
     let totalBookings = 0;
     try {
       const bookingsCountResult = await this.orderRepo.query(
@@ -1915,14 +1777,12 @@ export class OrdersService implements OnModuleInit {
 
     const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
-
     const salesTrend: { day: string; amount: number }[] = [];
     const nowLocal = new Date();
 
     const baseDate = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
 
     if (period === 'Last Year') {
-
       for (let i = 11; i >= 0; i--) {
         const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
         const monthName = d.toLocaleString('default', { month: 'short' });
@@ -1939,7 +1799,6 @@ export class OrdersService implements OnModuleInit {
         salesTrend.push({ day: monthName, amount: monthTotal });
       }
     } else {
-
       const daysCount = period === 'Last 7 Days' ? 7 : period === 'Last 30 Days' ? 30 : 90;
       const bucketSize = period === 'Last 3 Months' ? 3 : 1;
 
@@ -1987,12 +1846,10 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
-
   async getAdminAnalytics(period: string) {
-
     const now = new Date();
     const startDate = new Date();
-    let previousStartDate = new Date();
+    const previousStartDate = new Date();
 
     switch (period) {
       case 'last7days':
@@ -2013,33 +1870,21 @@ export class OrdersService implements OnModuleInit {
         previousStartDate.setDate(now.getDate() - 14);
     }
 
-
-
-
-
     const orders = await this.orderRepo.find({
       where: {
         createdAt: MoreThanOrEqual(startDate),
-
-
-
-
       },
       order: { createdAt: 'ASC' },
     });
 
-
     let totalRevenue = 0;
     let totalOrdersCount = 0;
-    let activeCustomersSet = new Set<string>();
-
+    const activeCustomersSet = new Set<string>();
 
     const dailyData: Record<string, number> = {};
     const restaurantRevenue: Record<string, { name: string; revenue: number }> = {};
     const orderSourceCount = { delivery: 0, pickup: 0 };
     const categoryRevenue: Record<string, { orders: number; revenue: number }> = {};
-
-
 
     const allMenuItemIds = new Set<number>();
     const allMenuItemUids = new Set<string>();
@@ -2047,8 +1892,6 @@ export class OrdersService implements OnModuleInit {
     let debugLogged = false;
 
     for (const order of orders) {
-
-
       if (['rejected', 'cancelled'].includes(order.restaurantStatus)) continue;
 
       if (!debugLogged && order.items && order.items.length > 0) {
@@ -2058,9 +1901,8 @@ export class OrdersService implements OnModuleInit {
 
       totalOrdersCount++;
 
-
-
-      const adminCommission = Number(order.admin_commission) || (Number(order.item_total) / 1.08 * 0.08);
+      const adminCommission =
+        Number(order.admin_commission) || (Number(order.item_total) / 1.08) * 0.08;
       const deliveryFee = Number(order.delivery_fee) || 0;
       const packingCharge = Number(order.packing_charge) || (order.item_total ? 10 : 0);
 
@@ -2070,10 +1912,8 @@ export class OrdersService implements OnModuleInit {
 
       if (order.customer) activeCustomersSet.add(order.customer);
 
-
       const day = order.createdAt.toISOString().split('T')[0];
       dailyData[day] = Number(((dailyData[day] || 0) + adminRevenue).toFixed(2));
-
 
       if (order.restaurant_uid) {
         if (!restaurantRevenue[order.restaurant_uid]) {
@@ -2084,18 +1924,14 @@ export class OrdersService implements OnModuleInit {
         );
       }
 
-
       if (order.delivery_partner_uid || order.delivery_fee > 0) {
         orderSourceCount.delivery++;
       } else {
         orderSourceCount.pickup++;
       }
 
-
       if (Array.isArray(order.items)) {
         for (const item of order.items) {
-
-
           const rawId =
             item.menuItemId ||
             item.menu_item_id ||
@@ -2104,7 +1940,6 @@ export class OrdersService implements OnModuleInit {
             item.id;
 
           if (rawId) {
-
             const numId = Number(rawId);
             if (!isNaN(numId) && typeof rawId !== 'string') {
               allMenuItemIds.add(numId);
@@ -2115,17 +1950,14 @@ export class OrdersService implements OnModuleInit {
               !rawId.includes('-') &&
               !rawId.startsWith('MNU')
             ) {
-
               allMenuItemIds.add(Number(rawId));
             } else {
-
               allMenuItemUids.add(String(rawId));
             }
           }
         }
       }
     }
-
 
     const restaurantUids = Object.keys(restaurantRevenue);
     if (restaurantUids.length > 0) {
@@ -2146,12 +1978,10 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
     console.log('Unique Menu Item IDs collected:', Array.from(allMenuItemIds));
     console.log('Unique Menu Item UIDs collected:', Array.from(allMenuItemUids));
 
     const menuCategoryMap = new Map<string | number, string>();
-
 
     if (allMenuItemIds.size > 0) {
       try {
@@ -2166,10 +1996,8 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
     if (allMenuItemUids.size > 0) {
       try {
-
         const uidsList = Array.from(allMenuItemUids)
           .map((u) => `'${u}'`)
           .join(',');
@@ -2185,7 +2013,6 @@ export class OrdersService implements OnModuleInit {
     }
 
     if (menuCategoryMap.size > 0) {
-
       for (const order of orders) {
         if (['rejected', 'cancelled'].includes(order.restaurantStatus)) continue;
         if (Array.isArray(order.items)) {
@@ -2200,17 +2027,13 @@ export class OrdersService implements OnModuleInit {
             let cat = 'Unknown';
 
             if (rawId) {
-
               const numId = Number(rawId);
               if (!isNaN(numId) && menuCategoryMap.has(numId)) {
                 cat = menuCategoryMap.get(numId) || 'Unknown';
-              }
-
-              else if (menuCategoryMap.has(String(rawId))) {
+              } else if (menuCategoryMap.has(String(rawId))) {
                 cat = menuCategoryMap.get(String(rawId)) || 'Unknown';
               }
             }
-
 
             const itemTotalPrice =
               (Number(item.price) || 0) * (Number(item.qty) || Number(item.quantity) || 1);
@@ -2228,9 +2051,7 @@ export class OrdersService implements OnModuleInit {
       console.log('No menu categories found for items.');
     }
 
-
     const avgOrderValue = totalOrdersCount > 0 ? totalRevenue / totalOrdersCount : 0;
-
 
     const salesReportChart = Object.entries(dailyData)
       .map(([date, sales]) => ({
@@ -2239,11 +2060,9 @@ export class OrdersService implements OnModuleInit {
       }))
       .sort((a, b) => a.day.localeCompare(b.day));
 
-
     const topRestaurants = Object.values(restaurantRevenue)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
-
 
     const totalSource = orderSourceCount.delivery + orderSourceCount.pickup;
     const orderSourceChart = [
@@ -2259,10 +2078,8 @@ export class OrdersService implements OnModuleInit {
       },
     ];
 
-
     const categoryDetails = Object.entries(categoryRevenue)
       .map(([cat, stats]) => {
-
         return {
           category: cat,
           orders: stats.orders,
@@ -2285,7 +2102,6 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
-
   async getOrderMonitoringStats(userUid: string, role: string) {
     const stats = {
       all: 0,
@@ -2296,7 +2112,6 @@ export class OrdersService implements OnModuleInit {
     };
 
     try {
-
       const counters = await this.orderRepo.query(`
         SELECT
             COUNT(*) as "all",
@@ -2321,7 +2136,6 @@ export class OrdersService implements OnModuleInit {
     return stats;
   }
 
-
   async reassignDeliveryPartner(orderId: string, newPartnerUid: string, reason?: string) {
     const order = await this.findOne(orderId);
     const oldPartnerUid = order.delivery_partner_uid;
@@ -2333,7 +2147,6 @@ export class OrdersService implements OnModuleInit {
     if (oldPartnerUid === newPartnerUid) {
       throw new BadRequestException('Order is already assigned to this partner');
     }
-
 
     let newPartnerName = 'Delivery Partner';
     try {
@@ -2348,10 +2161,8 @@ export class OrdersService implements OnModuleInit {
       console.warn('Could not fetch new partner name', e);
     }
 
-
     order.delivery_partner_uid = newPartnerUid;
     order.deliveryPartnerStatus = 'assigned';
-
 
     const currentTimestamp = new Date().toISOString();
     const timelineEntry = {
@@ -2367,16 +2178,13 @@ export class OrdersService implements OnModuleInit {
 
     const savedOrder = await this.orderRepo.save(order);
 
-
     try {
-
       if (oldPartnerUid) {
         await this.deliveryHistoryRepo.update(
           { order_id: orderId, fleet_uid: oldPartnerUid },
           { status: DeliveryStatus.CANCELLED },
         );
       }
-
 
       const deliveryHistory = this.deliveryHistoryRepo.create({
         order_id: orderId,
@@ -2396,8 +2204,6 @@ export class OrdersService implements OnModuleInit {
       console.error('Error updating delivery history during reassignment:', err);
     }
 
-
-
     if (oldPartnerUid) {
       try {
         await this.notificationService.notifyDeliveryPartnerCancelledByAdmin(
@@ -2410,11 +2216,9 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-
     try {
       const restaurantName = order.restaurant_name || 'Restaurant';
       const pickupAddress = order.delivery_address || 'Pickup location';
-
 
       await this.notificationService.notifyDeliveryPartnerAssignedJob(
         newPartnerUid,
@@ -2425,7 +2229,6 @@ export class OrdersService implements OnModuleInit {
     } catch (e) {
       console.error('Failed to notify new partner:', e);
     }
-
 
     if (order.customer) {
       try {

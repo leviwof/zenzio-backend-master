@@ -79,20 +79,14 @@ export async function signupWithEmail(
     documents,
   } = registerUserDto;
 
-  
   const dataSource: DataSource = fleetRepository.manager.connection;
-
-  
-  
-  
 
   const invalidFields: string[] = [];
 
-  
   if (!firstName || firstName.trim() === '') {
     invalidFields.push('firstName is required');
   }
-  
+
   if (!phoneNumber || phoneNumber.trim() === '') {
     invalidFields.push('phoneNumber is required');
   }
@@ -100,7 +94,6 @@ export async function signupWithEmail(
     invalidFields.push('password must be at least 6 characters');
   }
 
-  
   let workTypeData: WorkType | null = null;
   if (registerUserDto.work_type_uid) {
     workTypeData = await workTypeRepository.findOne({
@@ -112,13 +105,11 @@ export async function signupWithEmail(
     }
   }
 
-  
   const finalEmail =
     email && email.trim() !== ''
       ? email.trim()
       : `${phoneNumber.trim().replace(/\+/g, '')}@zenzio-guest.in`;
 
-  
   const normalizedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
   const rawPhone = phoneNumber.replace('+91', '').replace('+', '');
 
@@ -143,14 +134,12 @@ export async function signupWithEmail(
     invalidFields.push('Fleet email or phone already exists');
   }
 
-  
   if (bank_details) {
     if (bank_details.account_number && !bank_details.ifsc_code) {
       invalidFields.push('IFSC code is required when account number is provided');
     }
   }
 
-  
   if (address) {
     if (address.lat !== undefined && (address.lat < -90 || address.lat > 90)) {
       invalidFields.push('Invalid latitude value');
@@ -160,7 +149,6 @@ export async function signupWithEmail(
     }
   }
 
-  
   if (invalidFields.length > 0) {
     console.error(`[SIGNUP VALIDATION FAILED] ${JSON.stringify(invalidFields)}`);
     throw new BadRequestException({
@@ -170,10 +158,6 @@ export async function signupWithEmail(
       error: 'BadRequestException',
     });
   }
-
-  
-  
-  
 
   let firebaseAccount: any;
   try {
@@ -187,16 +171,11 @@ export async function signupWithEmail(
     });
   }
 
-  
-  
-  
-
   const queryRunner = dataSource.createQueryRunner();
   await queryRunner.connect();
   await queryRunner.startTransaction();
 
   try {
-    
     const uid = await utilService.generateUniqueUid(async (generatedUid) => {
       const exists = await queryRunner.manager.findOne(Fleet, { where: { uid: generatedUid } });
       return !!exists;
@@ -204,7 +183,6 @@ export async function signupWithEmail(
 
     const fullFleetUid = uid + 'FLT';
 
-    
     const createFleetDto: CreateFleetDto = {
       uid: fullFleetUid,
       firebase_uid: firebaseAccount.uid,
@@ -220,7 +198,6 @@ export async function signupWithEmail(
     const fleet = queryRunner.manager.create(Fleet, createFleetDto);
     const savedFleet = await queryRunner.manager.save(Fleet, fleet);
 
-    
     const contact = queryRunner.manager.create(FleetContact, {
       fleetUid: fullFleetUid,
       encryptedEmail: finalEmail,
@@ -230,7 +207,6 @@ export async function signupWithEmail(
     });
     await queryRunner.manager.save(FleetContact, contact);
 
-    
     let workTypeTiming = {};
     if (workTypeData) {
       workTypeTiming = {
@@ -253,7 +229,6 @@ export async function signupWithEmail(
     });
     await queryRunner.manager.save(FleetProfile, profile);
 
-    
     const bankDetails = queryRunner.manager.create(FleetBankDetails, {
       fleet: savedFleet,
       fleetUid: fullFleetUid,
@@ -264,7 +239,6 @@ export async function signupWithEmail(
     });
     await queryRunner.manager.save(FleetBankDetails, bankDetails);
 
-    
     const fleetAddress = queryRunner.manager.create(FleetAddress, {
       fleet: savedFleet,
       fleetUid: fullFleetUid,
@@ -277,7 +251,6 @@ export async function signupWithEmail(
     });
     await queryRunner.manager.save(FleetAddress, fleetAddress);
 
-    
     if (emergencyContacts && emergencyContacts.length > 0) {
       for (const item of emergencyContacts) {
         const emergencyContact = queryRunner.manager.create(FleetEmergencyContact, {
@@ -289,7 +262,6 @@ export async function signupWithEmail(
       }
     }
 
-    
     if (documents) {
       const doc = queryRunner.manager.create(FleetDocument, {
         fleet: savedFleet,
@@ -312,14 +284,8 @@ export async function signupWithEmail(
       await queryRunner.manager.save(FleetDocument, doc);
     }
 
-    
     await queryRunner.commitTransaction();
 
-    
-    
-    
-
-    
     if (email && email.trim() !== '') {
       try {
         const verificationLink = await firebaseService.sendEmailVerification(
@@ -327,7 +293,6 @@ export async function signupWithEmail(
           process.env.EMAIL_VERIFICATION_REDIRECT_URL || 'https://www.zenzio.in/',
         );
 
-        
         const htmlEmail = `
       <h2>Welcome to Zenzio Delivery Fleet</h2>
       <p>Please verify your email to activate your account:</p>
@@ -349,12 +314,10 @@ export async function signupWithEmail(
           'admin@zenzio.in',
         );
       } catch (emailError) {
-        
         console.error('Email verification sending failed:', emailError);
       }
     }
 
-    
     const payload = {
       uid: savedFleet.uid,
       userId: savedFleet.id,
@@ -367,7 +330,6 @@ export async function signupWithEmail(
 
     await sessionService.createFleetSession(savedFleet, refreshToken);
 
-    
     const fullUser = await fleetRepository.findOne({
       where: { id: savedFleet.id },
       relations: [
@@ -381,9 +343,6 @@ export async function signupWithEmail(
       ],
     });
 
-    
-    
-    
     try {
       await notificationService.notifyNewPartnerRegistered(`${firstName} ${lastName}`, finalEmail);
     } catch (err) {
@@ -395,10 +354,8 @@ export async function signupWithEmail(
       tokens: { accessToken, refreshToken },
     };
   } catch (error) {
-    
     await queryRunner.rollbackTransaction();
 
-    
     try {
       if (firebaseAccount?.uid) {
         await deps.firebaseService.deleteUserIfUnused(firebaseAccount.uid);
@@ -407,7 +364,6 @@ export async function signupWithEmail(
       console.error('Failed to cleanup Firebase account after DB error:', deleteError);
     }
 
-    
     if (error instanceof BadRequestException) {
       throw error;
     }
@@ -421,7 +377,6 @@ export async function signupWithEmail(
       error: 'InternalServerErrorException',
     });
   } finally {
-    
     await queryRunner.release();
   }
 }

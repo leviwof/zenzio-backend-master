@@ -13,7 +13,7 @@ export class SessionService {
   constructor(
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
-  ) { }
+  ) {}
 
   // ==============================================================
   // ✅ USER SESSION MANAGEMENT

@@ -36,7 +36,7 @@ export class CartController {
   constructor(
     private readonly cartService: CartService,
     private cartGroupService: CartGroupService,
-  ) { }
+  ) {}
 
   // ------------------------------------------------
   // 🟩 GET CART
@@ -330,13 +330,13 @@ export class CartController {
         ...group,
         address_details: addressDetails
           ? {
-            ...addressDetails,
-            // type: addressDetails.address_type,
-            // address: addressDetails.address,
-            // lat: addressDetails.lat,
-            // lng: addressDetails.lng,
-            // verified: addressDetails.verified,
-          }
+              ...addressDetails,
+              // type: addressDetails.address_type,
+              // address: addressDetails.address,
+              // lat: addressDetails.lat,
+              // lng: addressDetails.lng,
+              // verified: addressDetails.verified,
+            }
           : null,
 
         // items: group.items,

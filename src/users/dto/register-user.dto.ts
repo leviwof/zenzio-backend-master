@@ -70,7 +70,6 @@ export class RegisterUserDto {
   @Type(() => CreateUserAddressDto)
   address?: CreateUserAddressDto;
 
-
   @ApiProperty({
     description: 'User accepted terms & conditions',
     type: Boolean,

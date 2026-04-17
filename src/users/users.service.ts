@@ -1,5 +1,3 @@
-
-
 import {
   BadRequestException,
   Injectable,
@@ -54,15 +52,12 @@ export class UsersService {
     private readonly utilService: UtilService,
     private readonly mailService: MailService,
     private readonly referralService: ReferralService,
-  ) { }
+  ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const user = this.userRepository.create(createUserDto);
     return await this.userRepository.save(user);
   }
-
-
-
 
   async signupWithEmail(registerUserDto: RegisterUserDto) {
     const {
@@ -105,8 +100,6 @@ export class UsersService {
         (error as any).code === 'auth/email-already-exists' ||
         (error as any).code === 'auth/email-already-in-use'
       ) {
-
-
         // Reuse the existing Firebase account instead of deleting it
         firebaseAccount = await this.firebaseService.getUserByEmail(email);
         if (!firebaseAccount) {
@@ -115,7 +108,6 @@ export class UsersService {
       } else {
         throw error;
       }
-
     }
 
     const uid = await this.utilService.generateUniqueUid(async (generatedUid) => {
@@ -216,19 +208,16 @@ export class UsersService {
     return {
       fullUser,
       accessToken: '',
-      refreshToken: ''
+      refreshToken: '',
     };
   }
-
-
-
 
   async loginWithEmail(payload: LoginEmailDto) {
     const userType = Roles.USER_CUSTOMER;
     const { email, password } = payload;
 
     type FirebaseLoginResponse = {
-      user?: { firebase_uid: string;[key: string]: any };
+      user?: { firebase_uid: string; [key: string]: any };
       [key: string]: any;
     };
 
@@ -249,7 +238,6 @@ export class UsersService {
     });
 
     if (!userInDb) throw new UnauthorizedException('User not registered in app DB');
-
 
     const payloadJwt = {
       uid: userInDb.uid,
@@ -286,9 +274,6 @@ export class UsersService {
       ),
     };
   }
-
-
-
 
   async loginWithOtp(payload: LoginOtpDto) {
     const { phone, otp } = payload;
@@ -320,7 +305,6 @@ export class UsersService {
 
     if (!userInDb) throw new UnauthorizedException('Restaurant not registered in app DB');
 
-
     const payloadJwt = {
       uid: userInDb.uid,
       userId: userInDb.id,
@@ -355,7 +339,6 @@ export class UsersService {
       ),
     };
   }
-
 
   async findByUid(uid: string): Promise<User> {
     const user = await this.userRepository.findOne({
@@ -401,7 +384,6 @@ export class UsersService {
     }
 
     console.log(`🗑️ Starting deletion for user: ${uid} (Firebase: ${user.firebase_uid})`);
-
 
     try {
       await this.userContactRepository.delete({ userUid: uid });

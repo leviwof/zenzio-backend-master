@@ -41,9 +41,6 @@ class OperationalHourDto {
  * Register Restaurant DTO
  */
 export class RegisterRestaurantDto {
-
-
-
   @ApiProperty({
     description: 'Restaurant name',
     example: 'A2B Restaurant',
@@ -77,9 +74,6 @@ export class RegisterRestaurantDto {
   @IsString()
   avg_cost_for_two: string;
 
-
-
-
   @ApiProperty({
     description: 'Restaurant photos (array of image URLs)',
     example: ['https://example.com/photo1.jpg'],
@@ -91,9 +85,6 @@ export class RegisterRestaurantDto {
   @IsString({ each: true })
   photo?: string[];
 
-
-
-
   @ApiProperty({
     description: 'Average cost for two items',
     example: '300',
@@ -103,7 +94,6 @@ export class RegisterRestaurantDto {
   @IsString()
   avg_cost_two?: string;
 
-
   @ApiProperty({
     description: 'Packaging charge per order in ₹ (set to 0 if not charging)',
     example: 10,
@@ -112,8 +102,6 @@ export class RegisterRestaurantDto {
   @IsOptional()
   @IsNumber()
   packing_charge?: number;
-
-
 
   @ApiProperty({ example: 'a2b@example.com' })
   @IsNotEmpty()
@@ -130,17 +118,11 @@ export class RegisterRestaurantDto {
   @Length(8, 20)
   password: string;
 
-
-
-
   @ApiProperty({ required: false, type: CreateRestaurantAddressDto })
   @IsOptional()
   @ValidateNested()
   @Type(() => CreateRestaurantAddressDto)
   address?: CreateRestaurantAddressDto;
-
-
-
 
   @ApiProperty({ required: false, type: CreateRestaurantBankDetailsDto })
   @IsOptional()
@@ -148,17 +130,11 @@ export class RegisterRestaurantDto {
   @Type(() => CreateRestaurantBankDetailsDto)
   bank_details?: CreateRestaurantBankDetailsDto;
 
-
-
-
   @ApiProperty({ required: false, type: CreateRestaurantDocumentDto })
   @IsOptional()
   @ValidateNested()
   @Type(() => CreateRestaurantDocumentDto)
   documents?: CreateRestaurantDocumentDto;
-
-
-
 
   @ApiProperty({
     required: false,

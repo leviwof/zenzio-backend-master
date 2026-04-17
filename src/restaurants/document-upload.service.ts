@@ -10,14 +10,13 @@ import { DocumentUtils } from './utils/document-utils';
 import { RestaurantDocument } from './entity/restaurant_document.entity';
 import { DocumentUploadResponse } from './interface/document-upload-response.type';
 
-
 @Injectable()
 export class DocumentUploadService {
   constructor(
     private readonly s3Util: S3Util,
     @InjectRepository(RestaurantDocument)
     private readonly docRepo: Repository<RestaurantDocument>,
-  ) { }
+  ) {}
 
   async uploadMultipleDocuments(
     files: MulterFile[],

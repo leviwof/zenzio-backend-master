@@ -56,9 +56,6 @@ export class FleetProfile {
     this.referral_code = code;
   }
 
-  
-  
-  
   @Column({ nullable: true })
   work_type_uid: string;
 

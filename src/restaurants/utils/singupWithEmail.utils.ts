@@ -69,9 +69,6 @@ export async function signupWithEmail(
     operational_hours,
   } = registerUserDto;
 
-  
-  
-  
   const existingContact = await restaurantContactRepository.findOne({
     where: [{ encryptedEmail: email }, { encryptedPhone: phoneNumber }],
   });
@@ -80,9 +77,6 @@ export async function signupWithEmail(
     throw new BadRequestException('Restaurant email or phone number already exists.');
   }
 
-  
-  
-  
   const firebaseAccount = await firebaseService.registerUser(
     restaurant_name,
     contact_person,
@@ -90,9 +84,6 @@ export async function signupWithEmail(
     password,
   );
 
-  
-  
-  
   const uid = await utilService.generateUniqueUid(async (generatedUid) => {
     const exists = await restaurantRepository.findOne({ where: { uid: generatedUid } });
     return !!exists;
@@ -100,9 +91,6 @@ export async function signupWithEmail(
 
   const restaurantUid = uid + 'RES';
 
-  
-  
-  
   const defaultOperationalHours = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
     day,
     enabled: true,
@@ -115,9 +103,6 @@ export async function signupWithEmail(
     ? operational_hours.map((hr) => ({ ...hr, restaurantUid }))
     : defaultOperationalHours;
 
-  
-  
-  
   const createRestaurantDto: CreateRestaurantDto = {
     uid: restaurantUid,
     firebase_uid: firebaseAccount.uid,
@@ -134,9 +119,6 @@ export async function signupWithEmail(
   const restaurant = restaurantRepository.create(createRestaurantDto);
   const savedRestaurant = await restaurantRepository.save(restaurant);
 
-  
-  
-  
   await restaurantContactRepository.save(
     restaurantContactRepository.create({
       restaurantUid,
@@ -145,9 +127,6 @@ export async function signupWithEmail(
     }),
   );
 
-  
-  
-  
   await restaurantProfileRepository.save(
     restaurantProfileRepository.create({
       restaurantUid,
@@ -161,9 +140,6 @@ export async function signupWithEmail(
     }),
   );
 
-  
-  
-  
   await restaurantBankDetailsRepository.save(
     restaurantBankDetailsRepository.create({
       restaurantUid,
@@ -175,9 +151,6 @@ export async function signupWithEmail(
     }),
   );
 
-  
-  
-  
   await restaurantAddressRepository.save(
     restaurantAddressRepository.create({
       restaurantUid,
@@ -192,41 +165,27 @@ export async function signupWithEmail(
     }),
   );
 
-  
-  
-  
-  
-  
-  
   const docs = registerUserDto.documents;
 
   const normalizedDocs: DeepPartial<RestaurantDocument> = {
     restaurantUid,
     restaurant: savedRestaurant,
 
-    
     fssai_number: docs?.fssai_number ?? '',
     file_fssai: Array.isArray(docs?.file_fssai) ? docs.file_fssai : [],
 
-    
     gst_number: docs?.gst_number ?? '',
     file_gst: Array.isArray(docs?.file_gst) ? docs.file_gst : [],
 
-    
     trade_license_number: docs?.trade_license_number ?? '',
     file_trade_license: Array.isArray(docs?.file_trade_license) ? docs.file_trade_license : [],
 
-    
     otherDocumentType: docs?.otherDocumentType ?? '',
     file_other_doc: Array.isArray(docs?.file_other_doc) ? docs.file_other_doc : [],
   };
 
-  
   await restaurantDocsRepo.save(restaurantDocsRepo.create(normalizedDocs));
 
-  
-  
-  
   await Promise.all(
     finalOperationalHours.map((hr) =>
       operationalHourRepository.save(
@@ -238,10 +197,6 @@ export async function signupWithEmail(
       ),
     ),
   );
-
-  
-  
-  
 
   const verifyLink = await firebaseService.sendEmailVerification(
     email,
@@ -263,9 +218,7 @@ export async function signupWithEmail(
   `;
 
   await mailService.sendMail(email, 'Verify Your Restaurant Email', html);
-  
-  
-  
+
   const payload = {
     uid: savedRestaurant.uid,
     userId: savedRestaurant.id,
@@ -279,26 +232,17 @@ export async function signupWithEmail(
 
   await sessionService.createRestaurantSession(savedRestaurant, refreshToken);
 
-  
-  
-  
   const fullRestaurant = await restaurantRepository.findOne({
     where: { id: savedRestaurant.id },
     relations: ['contact', 'profile', 'bank_details', 'address', 'operational_hours', 'documents'],
   });
 
-  
-  
-  
   try {
     await notificationService.notifyNewRestaurantRegistered(restaurant_name, email);
   } catch (err) {
     console.error('Failed to notify admin about new restaurant:', err);
   }
 
-  
-  
-  
   return {
     user: fullRestaurant,
     tokens: {

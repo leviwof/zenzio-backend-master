@@ -61,11 +61,8 @@ export class RestaurantsController {
     private readonly fileService: RFileService,
     private readonly documentService: DocumentUploadService,
     private readonly profileService: RestaurantsService,
-  ) { }
+  ) {}
 
-  
-  
-  
   @UseGuards(FirebaseAuthGuard)
   @Get('firebase-profile')
   @ApiOperation({ summary: 'Get Firebase authenticated user profile' })
@@ -87,9 +84,6 @@ export class RestaurantsController {
     };
   }
 
-  
-  
-  
   @UseGuards(AccessTokenAuthGuard)
   @Get('me')
   @ApiOperation({ summary: 'Get logged-in restaurant profile' })
@@ -111,9 +105,6 @@ export class RestaurantsController {
     };
   }
 
-  
-  
-  
   @Post()
   @ApiOperation({ summary: 'Create restaurant' })
   @ApiResponse({ status: 201, description: 'Restaurant created' })
@@ -158,9 +149,6 @@ export class RestaurantsController {
     return this.restaurantService.resetPassword(req.user.uid, dto);
   }
 
-  
-  
-  
   @Post('auth/signup/email')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({ summary: 'Restaurant signup with email' })
@@ -169,9 +157,6 @@ export class RestaurantsController {
     return this.restaurantService.signupWithEmail(registerUserDto);
   }
 
-  
-  
-  
   @Post('auth/login/email')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({ summary: 'Restaurant login with email' })
@@ -197,9 +182,6 @@ export class RestaurantsController {
     return this.restaurantService.resendVerificationEmail(email);
   }
 
-  
-  
-  
   @Post('refresh-auth')
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
   @ApiQuery({ name: 'refreshToken', required: true })
@@ -207,9 +189,6 @@ export class RestaurantsController {
     return this.restaurantService.refreshAuthToken(refreshToken);
   }
 
-  
-  
-  
   @Get()
   @ApiOperation({ summary: 'Get all restaurants' })
   @ApiResponse({ status: 200, description: 'Restaurants loaded' })
@@ -217,7 +196,6 @@ export class RestaurantsController {
     return this.restaurantService.findAll();
   }
 
-  
   @Get('nearest')
   async getNearestRestaurants(
     @Query('lat') lat: string,
@@ -243,7 +221,7 @@ export class RestaurantsController {
     return {
       status: 'success',
       code: 200,
-      data: { restaurants: items }, 
+      data: { restaurants: items },
       meta: {
         timestamp: new Date().toISOString(),
         total,
@@ -258,7 +236,7 @@ export class RestaurantsController {
   @ApiOperation({ summary: 'Get nearest active restaurants (POST)' })
   @ApiResponse({ status: 200, description: 'Nearest restaurants loaded' })
   async findNearestRestaurants(@Body() dto: GetNearestRestaurantsDto) {
-    const { lat, lng, radius, page, limit,search, filter, sort, order } = dto;
+    const { lat, lng, radius, page, limit, search, filter, sort, order } = dto;
     const [items, total] = await this.restaurantService.getNearestActiveRestaurants(
       lat,
       lng,
@@ -287,7 +265,6 @@ export class RestaurantsController {
 
   @Patch(':id/toggle-active')
   @RolesDecorator(RoleEnum.USER_RESTAURANT)
-  
   async toggleRestaurantActive(@Param('id') id: string, @Req() req: AuthRequest) {
     if (!id) {
       throw new BadRequestException('Invalid user');
@@ -296,9 +273,6 @@ export class RestaurantsController {
     return this.restaurantService.toggleRestaurantActive(restaurantUid);
   }
 
-  
-  
-  
   /**
    * 🔄 TOGGLE RESTAURANT STATUS (ADMIN)
    */
@@ -323,25 +297,6 @@ export class RestaurantsController {
     return this.restaurantService.statusRestaurantByAdmin(admin_uid, restaurant_uid, body);
   }
 
-  
-  
-  
-  
-  
-  
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  
   @Get(':uid')
   @ApiOperation({ summary: 'Get restaurant by UID with profile' })
   @ApiParam({ name: 'uid', example: 'RES-123ABC', description: 'Restaurant UID' })
@@ -384,10 +339,7 @@ export class RestaurantsController {
   @ApiParam({ name: 'uid', example: 'RES-123ABC', description: 'Restaurant UID' })
   @ApiResponse({ status: 200, description: 'Address updated' })
   @ApiResponse({ status: 404, description: 'Not found' })
-  async updateAddressByAdmin(
-    @Param('uid') uid: string,
-    @Body() dto: UpdateRestaurantAddressDto,
-  ) {
+  async updateAddressByAdmin(@Param('uid') uid: string, @Body() dto: UpdateRestaurantAddressDto) {
     const address = await this.restaurantService.updateAddress(uid, dto);
     return {
       status: 'success',
@@ -406,10 +358,7 @@ export class RestaurantsController {
   @ApiParam({ name: 'uid', example: 'RES-123ABC', description: 'Restaurant UID' })
   @ApiResponse({ status: 200, description: 'Profile updated' })
   @ApiResponse({ status: 404, description: 'Not found' })
-  async updateProfileByAdmin(
-    @Param('uid') uid: string,
-    @Body() dto: UpdateRestaurantProfileDto,
-  ) {
+  async updateProfileByAdmin(@Param('uid') uid: string, @Body() dto: UpdateRestaurantProfileDto) {
     const profile = await this.restaurantService.updateProfile(uid, dto);
     return {
       status: 'success',
@@ -442,19 +391,6 @@ export class RestaurantsController {
     };
   }
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-  
-  
-  
   @Delete('me/account')
   @UseGuards(AccessTokenAuthGuard)
   @ApiBearerAuth()
@@ -472,9 +408,6 @@ export class RestaurantsController {
     return this.restaurantService.permanentlyDeleteRestaurant(uid);
   }
 
-  
-  
-  
   @Delete(':id')
   @ApiOperation({ summary: 'Delete restaurant by ID' })
   @ApiResponse({ status: 200, description: 'Deleted successfully' })
@@ -482,15 +415,6 @@ export class RestaurantsController {
     return this.restaurantService.remove(id);
   }
 
-  
-  
-  
-  
-  
-
-  
-  
-  
   @UseGuards(AccessTokenAuthGuard)
   @ApiBearerAuth()
   @Put('profile')
@@ -526,7 +450,7 @@ export class RestaurantsController {
       },
     },
   })
-  @UseInterceptors(FilesInterceptor('file')) 
+  @UseInterceptors(FilesInterceptor('file'))
   async uploadMenuImagePrefix(
     @UploadedFiles() files: MulterFile[],
     @Param('restaurantUid') restaurantUid: string,

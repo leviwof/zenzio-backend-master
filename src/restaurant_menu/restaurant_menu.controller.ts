@@ -14,7 +14,6 @@ import {
   Req,
   ParseIntPipe,
   Patch,
-
   UseInterceptors,
   UploadedFiles,
   UnauthorizedException,
@@ -37,8 +36,6 @@ import { AccessTokenAuthGuard, JwtAuthGuard, RolesGuard } from 'src/guards';
 import { AuthorizationRoleGuard } from 'src/auth/authorization-role.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
 
-
-
 import { MulterFile } from 'src/types/multer-file.type';
 import { MFileService } from './menu-images.service';
 import { MenuImageUploadResponse } from './types/menu-image-response.type';
@@ -59,8 +56,7 @@ export class Restaurant_menuController {
   constructor(
     private readonly restaurant_menuService: RestaurantMenuService,
     private readonly fileService: MFileService,
-  ) { }
-
+  ) {}
 
   @Post()
   @RolesDecorator(RoleEnum.USER_RESTAURANT)
@@ -72,7 +68,6 @@ export class Restaurant_menuController {
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async create(@Body() data: Restaurant_menuDto, @Req() req: AuthRequest) {
     try {
-
       let restaurant_uid: string = req.user?.uid;
 
       if (!restaurant_uid) {
@@ -82,7 +77,6 @@ export class Restaurant_menuController {
           throw new BadRequestException('Invalid restaurant user or missing restaurant_uid');
         }
       }
-
 
       const item = await this.restaurant_menuService.create({
         ...data,
@@ -104,17 +98,13 @@ export class Restaurant_menuController {
     }
   }
 
-
   @Post('admin-create')
   @UseInterceptors(FilesInterceptor('files'))
   @ApiOperation({ summary: 'Admin creates a menu item for any restaurant' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Menu created successfully by admin' })
   @ApiResponse({ status: 400, description: 'Validation or creation failed' })
-  async createByAdmin(
-    @Body() data: any,
-    @UploadedFiles() files: MulterFile[],
-  ) {
+  async createByAdmin(@Body() data: any, @UploadedFiles() files: MulterFile[]) {
     try {
       const restaurant_uid = data.restaurant_uid;
       if (!restaurant_uid) {
@@ -129,13 +119,14 @@ export class Restaurant_menuController {
         throw new BadRequestException('price is required');
       }
 
-
       let images: string[] = [];
       if (files && files.length > 0) {
-        const uploadResults = await this.fileService.uploadImagesForNewMenu(files, `admin-menu-${Date.now()}`);
-        images = uploadResults.map(r => r.url);
+        const uploadResults = await this.fileService.uploadImagesForNewMenu(
+          files,
+          `admin-menu-${Date.now()}`,
+        );
+        images = uploadResults.map((r) => r.url);
       }
-
 
       const menuData = {
         restaurant_uid: restaurant_uid,
@@ -177,17 +168,14 @@ export class Restaurant_menuController {
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Menu items created successfully by admin' })
   @ApiResponse({ status: 400, description: 'Validation or creation failed' })
-  async bulkUpload(
-    @Body() data: any,
-    @UploadedFiles() files: MulterFile[],
-  ) {
+  async bulkUpload(@Body() data: any, @UploadedFiles() files: MulterFile[]) {
     try {
       if (!files || files.length === 0) {
         throw new BadRequestException('Excel/CSV file is required');
       }
 
       const file = files[0];
-      const fileType = file.originalname.split('.').pop()?.toLowerCase();
+      const fileType = file.originalname.split('.').pop()?.toLowerCase() || '';
 
       if (!['xlsx', 'xls', 'csv'].includes(fileType)) {
         throw new BadRequestException('Only Excel (.xlsx, .xls) or CSV files are allowed');
@@ -197,13 +185,13 @@ export class Restaurant_menuController {
 
       if (fileType === 'csv') {
         const content = file.buffer.toString('utf-8');
-        const lines = content.split(/\r?\n/).filter(line => line.trim());
+        const lines = content.split(/\r?\n/).filter((line) => line.trim());
         if (lines.length === 0) {
           throw new BadRequestException('File is empty');
         }
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const headers = lines[0].split(',').map((h) => h.trim().replace(/"/g, ''));
         for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+          const values = lines[i].split(',').map((v) => v.trim().replace(/"/g, ''));
           const row: any = {};
           headers.forEach((header, index) => {
             row[header] = values[index] || '';
@@ -281,7 +269,6 @@ export class Restaurant_menuController {
     }
   }
 
-
   @Get()
   @ApiOperation({ summary: 'Fetch all restaurant menu items with pagination' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -303,7 +290,6 @@ export class Restaurant_menuController {
       },
     };
   }
-
 
   @Get('categories')
   @ApiOperation({ summary: 'Fetch unique categories from restaurant menus' })
@@ -330,10 +316,7 @@ export class Restaurant_menuController {
   @ApiQuery({ name: 'query', required: false, example: 'pizza' })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
   @ApiResponse({ status: 200, description: 'Suggestions fetched successfully' })
-  async getSuggestions(
-    @Query('query') query?: string,
-    @Query('limit') limit = 10,
-  ) {
+  async getSuggestions(@Query('query') query?: string, @Query('limit') limit = 10) {
     const data = await this.restaurant_menuService.getSearchSuggestions(query, Number(limit));
 
     return {
@@ -354,7 +337,8 @@ export class Restaurant_menuController {
   @ApiParam({ name: 'restaurant_uid', example: 'REST-123456', description: 'Restaurant UID' })
   @ApiResponse({ status: 200, description: 'Categories fetched successfully' })
   async getCategoriesByRestaurant(@Param('restaurant_uid') restaurant_uid: string) {
-    const categories = await this.restaurant_menuService.getUniqueCategoriesByRestaurant(restaurant_uid);
+    const categories =
+      await this.restaurant_menuService.getUniqueCategoriesByRestaurant(restaurant_uid);
 
     return {
       status: 'success',
@@ -369,8 +353,6 @@ export class Restaurant_menuController {
       },
     };
   }
-
-
 
   @Get('/search')
   @ApiOperation({ summary: 'Fetch all restaurant menu items with filters & pagination' })
@@ -454,7 +436,17 @@ export class Restaurant_menuController {
   @ApiBody({ type: GetNearestMenusDto })
   @ApiResponse({ status: 200, description: 'Filtered menu items fetched successfully' })
   async findNearestMenusPost(@Body() dto: GetNearestMenusDto) {
-    const { lat, lng, radius = 10, page = 1, limit = 10, search, categories, cuisine_types, food_types } = dto;
+    const {
+      lat,
+      lng,
+      radius = 10,
+      page = 1,
+      limit = 10,
+      search,
+      categories,
+      cuisine_types,
+      food_types,
+    } = dto;
 
     const [items, total] = await this.restaurant_menuService.getMenusByNearestRestaurant(
       Number(lat),
@@ -490,7 +482,6 @@ export class Restaurant_menuController {
     };
   }
 
-
   @Get('me')
   @UseGuards(AccessTokenAuthGuard, AuthorizationRoleGuard)
   @ApiOperation({ summary: 'Fetch menus for logged-in restaurant' })
@@ -504,7 +495,6 @@ export class Restaurant_menuController {
       throw new BadRequestException('Invalid restaurant user');
     }
 
-
     const [items, total] = await this.restaurant_menuService.findMyMenus(
       restaurant_uid,
       +page,
@@ -514,7 +504,10 @@ export class Restaurant_menuController {
 
     console.log(`📊 [/restaurant-menu/me] Restaurant: ${restaurant_uid}`);
     console.log(`📊 [/restaurant-menu/me] Returning ${items.length} items out of ${total} total`);
-    console.log(`📊 [/restaurant-menu/me] Menu names:`, items.map(i => i.menu_name));
+    console.log(
+      `📊 [/restaurant-menu/me] Menu names:`,
+      items.map((i) => i.menu_name),
+    );
 
     return {
       status: 'success',
@@ -535,7 +528,12 @@ export class Restaurant_menuController {
   @ApiQuery({ name: 'restaurant_uid', required: true, example: 'RES123ABC' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
-  @ApiQuery({ name: 'includeInactive', required: false, example: 'true', description: 'Include inactive menus (for admin)' })
+  @ApiQuery({
+    name: 'includeInactive',
+    required: false,
+    example: 'true',
+    description: 'Include inactive menus (for admin)',
+  })
   @ApiResponse({ status: 200, description: 'Menus fetched successfully' })
   async findMenusByRestaurant(
     @Query('restaurant_uid') restaurant_uid: string,
@@ -546,7 +544,6 @@ export class Restaurant_menuController {
     if (!restaurant_uid) {
       throw new BadRequestException('restaurant_uid is required');
     }
-
 
     const showInactive = includeInactive === 'true' || includeInactive === '1';
 
@@ -570,9 +567,6 @@ export class Restaurant_menuController {
       },
     };
   }
-
-
-
 
   @Get('by-restaurant-category')
   @ApiOperation({ summary: 'Fetch menus by restaurant UID' })
@@ -612,26 +606,6 @@ export class Restaurant_menuController {
     };
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   @Get(':menu_uid')
   @ApiOperation({ summary: 'Fetch a single restaurant menu item by UID' })
   @ApiParam({
@@ -646,20 +620,19 @@ export class Restaurant_menuController {
 
     return item
       ? {
-        status: 'success',
-        code: 200,
-        data: { restaurant_menu: item },
-        message: 'Restaurant menu fetched successfully',
-        meta: { timestamp: new Date().toISOString() },
-      }
+          status: 'success',
+          code: 200,
+          data: { restaurant_menu: item },
+          message: 'Restaurant menu fetched successfully',
+          meta: { timestamp: new Date().toISOString() },
+        }
       : {
-        status: 'error',
-        code: 404,
-        message: 'Restaurant menu not found',
-        meta: { timestamp: new Date().toISOString() },
-      };
+          status: 'error',
+          code: 404,
+          message: 'Restaurant menu not found',
+          meta: { timestamp: new Date().toISOString() },
+        };
   }
-
 
   @Put(':id')
   @ApiOperation({ summary: 'Update an existing restaurant menu item' })
@@ -669,16 +642,16 @@ export class Restaurant_menuController {
       const item = await this.restaurant_menuService.update(+id, data);
       return item
         ? {
-          status: 'success',
-          code: 200,
-          data: { restaurant_menu: item },
-          message: 'Restaurant menu updated successfully',
-        }
+            status: 'success',
+            code: 200,
+            data: { restaurant_menu: item },
+            message: 'Restaurant menu updated successfully',
+          }
         : {
-          status: 'error',
-          code: 404,
-          message: 'Restaurant menu not found',
-        };
+            status: 'error',
+            code: 404,
+            message: 'Restaurant menu not found',
+          };
     } catch (error) {
       if (error instanceof Error) {
         throw new BadRequestException(error.message);
@@ -686,30 +659,6 @@ export class Restaurant_menuController {
       throw new BadRequestException('Unexpected error occurred');
     }
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   @Delete(':menu_uid')
   @ApiOperation({ summary: 'Hard delete a restaurant menu item by UID' })
@@ -739,7 +688,6 @@ export class Restaurant_menuController {
       meta: { timestamp: new Date().toISOString() },
     };
   }
-
 
   @Patch(':menu_uid')
   @ApiOperation({ summary: 'Update a restaurant menu item by UID' })
@@ -773,7 +721,6 @@ export class Restaurant_menuController {
     };
   }
 
-
   @Delete(':id/soft')
   @ApiOperation({ summary: 'Soft delete a restaurant menu item by ID' })
   @ApiParam({ name: 'id', example: 1, description: 'Restaurant menu ID' })
@@ -783,21 +730,18 @@ export class Restaurant_menuController {
     const softDeleted = await this.restaurant_menuService.softDelete(+id);
     return softDeleted
       ? {
-        status: 'success',
-        code: 200,
-        message: 'Restaurant menu soft deleted successfully',
-        meta: { timestamp: new Date().toISOString() },
-      }
+          status: 'success',
+          code: 200,
+          message: 'Restaurant menu soft deleted successfully',
+          meta: { timestamp: new Date().toISOString() },
+        }
       : {
-        status: 'error',
-        code: 404,
-        message: 'Restaurant menu not found',
-        meta: { timestamp: new Date().toISOString() },
-      };
+          status: 'error',
+          code: 404,
+          message: 'Restaurant menu not found',
+          meta: { timestamp: new Date().toISOString() },
+        };
   }
-
-
-
 
   @Patch(':id/activate')
   @ApiOperation({ summary: 'Activate a menu item' })
@@ -819,9 +763,6 @@ export class Restaurant_menuController {
     };
   }
 
-
-
-
   @Patch(':id/deactivate')
   @ApiOperation({ summary: 'Deactivate a menu item' })
   @ApiResponse({
@@ -842,10 +783,6 @@ export class Restaurant_menuController {
     };
   }
 
-
-
-
-
   @Patch(':uid/toggle')
   @RolesDecorator(RoleEnum.USER_RESTAURANT)
   @UseGuards(AccessTokenAuthGuard, RolesGuard)
@@ -858,7 +795,6 @@ export class Restaurant_menuController {
 
     const result = await this.restaurant_menuService.toggleMenuStatus(restaurantUid, menuUid);
 
-
     if (result === null) {
       return {
         status: 'failed',
@@ -870,7 +806,6 @@ export class Restaurant_menuController {
         },
       };
     }
-
 
     if (result === false) {
       return {
@@ -922,9 +857,6 @@ export class Restaurant_menuController {
       };
     }
 
-
-
-
     const statusMessage =
       result.status === 1 ? 'Menu activated by admin' : 'Menu deactivated by admin';
 
@@ -944,39 +876,6 @@ export class Restaurant_menuController {
       meta: { timestamp: new Date().toISOString() },
     };
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   @Patch('admin-edit/:menu_uid')
   @ApiConsumes('multipart/form-data')
@@ -1000,23 +899,29 @@ export class Restaurant_menuController {
         };
       }
 
-      let images: string[] = existingMenu.images && existingMenu.images.length > 0 ? existingMenu.images : [];
+      let images: string[] =
+        existingMenu.images && existingMenu.images.length > 0 ? existingMenu.images : [];
       if (files && files.length > 0) {
-        const uploadResults = await this.fileService.uploadImagesForNewMenu(files, `admin-menu-${menu_uid}`);
-        images = uploadResults.map(r => r.url);
+        const uploadResults = await this.fileService.uploadImagesForNewMenu(
+          files,
+          `admin-menu-${menu_uid}`,
+        );
+        images = uploadResults.map((r) => r.url);
       }
 
       const menuData: any = {};
       if (data.restaurant_uid !== undefined) menuData.restaurant_uid = data.restaurant_uid;
       if (data.menu_name !== undefined) menuData.menu_name = data.menu_name;
       if (data.price !== undefined) menuData.price = parseFloat(data.price) || 0;
-      if (data.discount !== undefined) menuData.discount = data.discount ? parseInt(data.discount, 10) : 0;
+      if (data.discount !== undefined)
+        menuData.discount = data.discount ? parseInt(data.discount, 10) : 0;
       if (data.description !== undefined) menuData.description = data.description || null;
       if (data.category !== undefined) menuData.category = data.category || null;
       if (data.food_type !== undefined) menuData.food_type = data.food_type || 'Veg';
       if (data.cuisine_type !== undefined) menuData.cuisine_type = data.cuisine_type || null;
       if (data.isActive !== undefined) {
-        menuData.isActive = data.isActive === '1' || data.isActive === 'true' || data.isActive === true;
+        menuData.isActive =
+          data.isActive === '1' || data.isActive === 'true' || data.isActive === true;
         menuData.status = menuData.isActive;
       }
       if (images.length > 0) {

@@ -1,4 +1,3 @@
-
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
@@ -9,7 +8,6 @@ import * as dns from 'dns';
 import * as cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
-
 import * as bodyParser from 'body-parser';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -17,13 +15,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
-
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-
 
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ extended: true }));
-
 
   app.use((req, res, next) => {
     console.log(`\n📝 [REQUEST] ${req.method} ${req.url}`);
@@ -40,7 +35,6 @@ async function bootstrap() {
     next();
   });
 
-
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -51,13 +45,7 @@ async function bootstrap() {
 
   app.use(cookieParser.default());
 
-
-  const firebaseKeyFilePath = join(
-    process.cwd(),
-    'src',
-    'config',
-    'firebase-adminsdk.json',
-  );
+  const firebaseKeyFilePath = join(process.cwd(), 'src', 'config', 'firebase-adminsdk.json');
 
   if (!fs.existsSync(firebaseKeyFilePath)) {
     console.error('Firebase key file not found:', firebaseKeyFilePath);
@@ -75,14 +63,27 @@ async function bootstrap() {
     });
   }
 
-  const corsOrigins = process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3001', 'http://localhost:4000', 'http://52.66.77.59:4173'];
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3001',
+        'http://localhost:4000',
+        'http://52.66.77.59:4173',
+      ];
 
   app.enableCors({
     origin: corsOrigins,
     methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'clientId', 'X-Requested-With', 'Accept', 'Origin'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'clientId',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+    ],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     credentials: true,
     maxAge: 86400,
@@ -90,14 +91,12 @@ async function bootstrap() {
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
-
   const config = new DocumentBuilder()
     .setTitle('Zenzio API')
     .setDescription('API documentation for Zenzio')
     .setVersion('1.0')
 
-
-.addBearerAuth(
+    .addBearerAuth(
       {
         type: 'http',
         scheme: 'bearer',
@@ -114,7 +113,6 @@ async function bootstrap() {
       in: 'cookie',
       description: 'JWT token stored in cookie named "token"',
     })
-
 
     .addApiKey(
       {
@@ -133,17 +131,12 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true, withCredentials: true },
   });
 
-
   app.use((req, res, next) => {
     if (!req.headers['clientid']) {
       req.headers['clientid'] = '4197a0e1-6e3f-4452-8381-d391f60f8154';
     }
     next();
   });
-
-
-
-
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen(port, '0.0.0.0');

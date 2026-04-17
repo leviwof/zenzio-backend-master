@@ -102,7 +102,6 @@ export class Restaurant {
   @Column({ type: 'boolean', default: true })
   isDiningEnabled: boolean;
 
-  
   @Column({ type: 'float', default: 0 })
   rating_sum: number;
 

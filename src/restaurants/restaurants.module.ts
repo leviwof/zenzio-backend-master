@@ -76,4 +76,4 @@ import { DiningSpace } from 'src/bookings/entities/dining-space.entity';
   ],
   exports: [RestaurantsService],
 })
-export class RestaurantsModule { }
+export class RestaurantsModule {}

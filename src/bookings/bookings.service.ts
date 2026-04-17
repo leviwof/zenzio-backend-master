@@ -16,7 +16,7 @@ export class BookingsService implements OnModuleInit {
     private readonly restaurantRepository: Repository<Restaurant>,
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     await this.migrateColumns();
@@ -64,7 +64,6 @@ export class BookingsService implements OnModuleInit {
       );
     }
 
-    
     if (createBookingDto.event_id) {
       const event = await this.eventRepository.findOne({
         where: { id: createBookingDto.event_id },
@@ -74,14 +73,12 @@ export class BookingsService implements OnModuleInit {
         throw new NotFoundException(`Event not found with ID: ${createBookingDto.event_id}`);
       }
 
-      
       if (createBookingDto.guests > event.max_persons) {
         throw new BadRequestException(
           `Maximum ${event.max_persons} persons allowed per booking for this event`,
         );
       }
 
-      
       const existingBookings = await this.bookingRepository.find({
         where: { event_id: event.id, status: Raw((alias) => `${alias} != 'CANCELLED'`) },
       });
@@ -96,7 +93,6 @@ export class BookingsService implements OnModuleInit {
       }
     }
 
-    
     const bookingData: Partial<Booking> = {
       date: createBookingDto.date as any,
       guests: createBookingDto.guests,
@@ -114,7 +110,6 @@ export class BookingsService implements OnModuleInit {
 
     const booking = this.bookingRepository.create(bookingData);
 
-    
     (booking as any).user = { id: user.id || (user as any).userId };
 
     const savedBooking = await this.bookingRepository.save(booking);
@@ -135,13 +130,12 @@ export class BookingsService implements OnModuleInit {
     const { status, date, page = 1, pageSize = 10, search } = params;
     const skip = (page - 1) * pageSize;
 
-    
     const queryBuilder = this.bookingRepository
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.restaurant', 'restaurant')
-      .leftJoinAndSelect('restaurant.profile', 'restaurantProfile') 
+      .leftJoinAndSelect('restaurant.profile', 'restaurantProfile')
       .leftJoinAndSelect('booking.user', 'user')
-      .leftJoinAndSelect('user.profile', 'userProfile') 
+      .leftJoinAndSelect('user.profile', 'userProfile')
       .orderBy('booking.date', 'DESC')
       .skip(skip)
       .take(pageSize);
@@ -151,7 +145,6 @@ export class BookingsService implements OnModuleInit {
     }
 
     if (date) {
-      
       if (date.includes(',')) {
         const [start, end] = date.split(',');
         queryBuilder.andWhere('booking.date BETWEEN :start AND :end', { start, end });
@@ -169,9 +162,6 @@ export class BookingsService implements OnModuleInit {
 
     const [bookings, total] = await queryBuilder.getManyAndCount();
 
-    
-    
-    
     const mappedBookings = bookings.map((b) => {
       const customerName = b.user?.profile
         ? `${b.user.profile.first_name} ${b.user.profile.last_name}`
@@ -180,11 +170,10 @@ export class BookingsService implements OnModuleInit {
         (b.restaurant as any)?.profile?.restaurant_name ||
         (b.restaurant as any)?.name ||
         'Restaurant';
-      
 
       return {
         id: b.id,
-        bookingId: b.id.toString(), 
+        bookingId: b.id.toString(),
         customerName: customerName,
         restaurantName: restaurantName,
         dateTime: `${b.date} ${b.bookingTime || ''}`,
@@ -219,20 +208,17 @@ export class BookingsService implements OnModuleInit {
       throw new NotFoundException(`Booking with ID ${id} not found`);
     }
 
-    
     return {
       id: booking.id,
-      bookingNumber: booking.id, 
+      bookingNumber: booking.id,
       status: booking.status,
-      updatedAt: booking.updated_at, 
+      updatedAt: booking.updated_at,
       bookingDate: booking.date,
       bookingTime: booking.bookingTime,
       numberOfGuests: booking.guests,
       specialRequests: booking.specialRequest,
       diningArea: booking.diningSpace ? { areaName: booking.diningSpace.areaName } : null,
-      event: booking.event
-        ? { eventName: booking.event.name, isAdminVerified: true }
-        : null,
+      event: booking.event ? { eventName: booking.event.name, isAdminVerified: true } : null,
       user: {
         id: booking.user?.id || (booking.user as any)?.uid,
         name: booking.user?.profile
@@ -248,15 +234,11 @@ export class BookingsService implements OnModuleInit {
         contact_number: booking.restaurant?.profile?.contact_number,
         rest_address: booking.restaurant?.address?.address || 'N/A',
       },
-      timeline: [
-        { status: 'created', event: 'Booking Created', timestamp: booking.created_at },
-        
-      ],
+      timeline: [{ status: 'created', event: 'Booking Created', timestamp: booking.created_at }],
     };
   }
 
   async findAllByUser(userId: number): Promise<Booking[]> {
-    
     return this.bookingRepository.find({
       where: { user_id: userId },
       relations: [
@@ -296,7 +278,6 @@ export class BookingsService implements OnModuleInit {
       where.status = status.toUpperCase();
     }
 
-    
     if (startDate && endDate) {
       const { Between } = require('typeorm');
       where.date = Between(startDate, endDate);
@@ -330,16 +311,13 @@ export class BookingsService implements OnModuleInit {
   async updateStatus(id: string, status: BookingStatus): Promise<Booking> {
     console.log(`🔄 [DEBUG] Updating booking ${id} to status: ${status}`);
 
-    
     const booking = await this.bookingRepository.findOne({ where: { id } });
     if (!booking) {
       throw new NotFoundException(`Booking with ID ${id} not found`);
     }
 
-    
     await this.bookingRepository.update(id, { status });
 
-    
     const updatedBooking = await this.bookingRepository.findOne({
       where: { id },
       relations: ['user', 'restaurant'],
@@ -370,8 +348,6 @@ export class BookingsService implements OnModuleInit {
     );
 
     if (!restaurantUid) {
-      
-      
       console.warn('⚠️ [WARN] getStats called without restaurantUid - returning empty stats');
       return {
         total: 0,
@@ -383,10 +359,9 @@ export class BookingsService implements OnModuleInit {
     }
 
     const where: any = {};
-    
+
     where.restaurant = { uid: restaurantUid };
 
-    
     if (startDate && endDate) {
       const { Between } = require('typeorm');
       where.date = Between(startDate, endDate);

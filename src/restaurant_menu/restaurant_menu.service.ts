@@ -14,7 +14,6 @@ import {
   setMenuStatus,
   toggleMenuStatusUtil,
   menuStatusByAdminUtil,
-
 } from './utils/menu-status.utils';
 import { RestaurantMenuUpdateDto } from './dto/restaurant_menu-update.dto';
 
@@ -26,7 +25,7 @@ export class RestaurantMenuService {
 
     @InjectRepository(Restaurant)
     private readonly restaurantRepository: Repository<Restaurant>,
-  ) { }
+  ) {}
 
   async getSearchSuggestions(query?: string, limit = 10) {
     const trimmedQuery = query?.trim() ?? '';
@@ -120,7 +119,9 @@ export class RestaurantMenuService {
     return rows.map((row) => ({
       type: 'food',
       title: row.menuName,
-      subtitle: row.restaurantName ? `${row.restaurantName}${row.category ? ` • ${row.category}` : ''}` : row.category,
+      subtitle: row.restaurantName
+        ? `${row.restaurantName}${row.category ? ` • ${row.category}` : ''}`
+        : row.category,
       matchSource: this.getFoodMatchSource(query, row),
       menu_uid: row.menuUid,
       restaurant_uid: row.restaurantUid,
@@ -219,7 +220,9 @@ export class RestaurantMenuService {
     return rows.map((row) => ({
       type: 'food',
       title: row.menuName,
-      subtitle: row.restaurantName ? `${row.restaurantName}${row.category ? ` • ${row.category}` : ''}` : row.category,
+      subtitle: row.restaurantName
+        ? `${row.restaurantName}${row.category ? ` • ${row.category}` : ''}`
+        : row.category,
       matchSource: 'popular_food',
       menu_uid: row.menuUid,
       restaurant_uid: row.restaurantUid,
@@ -294,12 +297,10 @@ export class RestaurantMenuService {
     return 'restaurant_related';
   }
 
-
   async create(data: Partial<RestaurantMenu>): Promise<RestaurantMenu> {
     const entity = this.menuRepository.create(data);
     return await this.menuRepository.save(entity);
   }
-
 
   async findAllWithPagination(page: number, limit: number): Promise<[RestaurantMenu[], number]> {
     const skip = (page - 1) * limit;
@@ -312,10 +313,6 @@ export class RestaurantMenuService {
       },
     });
   }
-
-
-
-
 
   async findAllWithSearchPagination(
     page: number,
@@ -355,7 +352,6 @@ export class RestaurantMenuService {
     });
   }
 
-
   async getMenusByNearestRestaurant(
     userLat: number,
     userLng: number,
@@ -369,23 +365,15 @@ export class RestaurantMenuService {
       search?: string;
     },
   ): Promise<[NearestMenuResult[], number]> {
-
     console.log(
       `🍽️ [getMenusByNearestRestaurant] Lat: ${userLat}, Lng: ${userLng}, Radius: ${radiusKm}, Page: ${page}, Limit: ${limit}`,
     );
     console.log(`🍽️ [getMenusByNearestRestaurant] Filters:`, filters);
 
-
     const sql = buildNearestRestaurantMenuQuery(filters);
     const skip = (page - 1) * limit;
 
-    const queryParams: any[] = [
-      userLat,
-      userLng,
-      radiusKm,
-      limit,
-      skip,
-    ];
+    const queryParams: any[] = [userLat, userLng, radiusKm, limit, skip];
 
     if (filters?.categories && filters.categories.length > 0) {
       queryParams.push(filters.categories);
@@ -402,11 +390,8 @@ export class RestaurantMenuService {
 
     const raw: any[] = await this.menuRepository.query(sql, queryParams);
 
-
     const total = raw.length > 0 ? Number(raw[0].total_count) : 0;
     console.log({ rawLength: raw.length, total });
-
-
 
     const items: NearestMenuResult[] = raw.map((r: any) => ({
       restaurant_uid: String(r.restaurant_uid),
@@ -455,7 +440,6 @@ export class RestaurantMenuService {
     return [items, total];
   }
 
-
   async findMyMenus(
     restaurant_uid: string,
     page: number,
@@ -463,7 +447,6 @@ export class RestaurantMenuService {
     includeInactive: boolean = false,
   ): Promise<[RestaurantMenu[], number]> {
     const where: any = { restaurant_uid };
-
 
     if (!includeInactive) {
       where.isActive = true;
@@ -477,7 +460,6 @@ export class RestaurantMenuService {
     });
   }
 
-
   async findOne(id: number): Promise<RestaurantMenu | null> {
     return await this.menuRepository.findOne({ where: { id } });
   }
@@ -485,7 +467,6 @@ export class RestaurantMenuService {
   async findOneByUid(menu_uid: string): Promise<RestaurantMenu | null> {
     return await this.menuRepository.findOne({ where: { menu_uid } });
   }
-
 
   async update(id: number, data: RestaurantMenuUpdateDto): Promise<RestaurantMenu | null> {
     const menu = await this.menuRepository.findOne({ where: { id } });
@@ -496,7 +477,6 @@ export class RestaurantMenuService {
     return await this.menuRepository.save(menu);
   }
 
-
   async remove(id: number): Promise<boolean> {
     const result = await this.menuRepository.delete(id);
     return result.affected !== 0;
@@ -505,10 +485,8 @@ export class RestaurantMenuService {
   async removeByUid(menu_uid: string): Promise<boolean> {
     const result = await this.menuRepository.delete({ menu_uid });
 
-
     return Boolean(result?.affected && result.affected > 0);
   }
-
 
   async softDelete(id: number): Promise<boolean> {
     const result = await this.menuRepository.softDelete(id);
@@ -522,10 +500,6 @@ export class RestaurantMenuService {
   async deactivateMenu(id: number): Promise<boolean> {
     return await setMenuStatus(this.menuRepository, id, false);
   }
-
-
-
-
 
   async toggleMenuStatus(restaurantUid: string, menuUid: string) {
     return await toggleMenuStatusUtil(this.menuRepository, restaurantUid, menuUid);
@@ -552,7 +526,6 @@ export class RestaurantMenuService {
 
     return true;
   }
-
 
   async getUniqueCategories(): Promise<string[]> {
     const result = await this.menuRepository
@@ -581,8 +554,8 @@ export class RestaurantMenuService {
     const hasUncategorized = await this.menuRepository.findOne({
       where: [
         { restaurant_uid, category: IsNull(), isActive: true },
-        { restaurant_uid, category: '', isActive: true }
-      ]
+        { restaurant_uid, category: '', isActive: true },
+      ],
     });
 
     if (hasUncategorized) {
@@ -592,8 +565,12 @@ export class RestaurantMenuService {
     return categories;
   }
 
-
-  async findMenusByRestaurantAndCategory(restaurant_uid: string, category: string, page: number, limit: number) {
+  async findMenusByRestaurantAndCategory(
+    restaurant_uid: string,
+    category: string,
+    page: number,
+    limit: number,
+  ) {
     const skip = (page - 1) * limit;
     let where: any;
 
@@ -601,7 +578,7 @@ export class RestaurantMenuService {
       // Look for both NULL and Empty String
       where = [
         { restaurant_uid, category: IsNull(), isActive: true },
-        { restaurant_uid, category: '', isActive: true }
+        { restaurant_uid, category: '', isActive: true },
       ];
     } else {
       where = { restaurant_uid, category, isActive: true };
@@ -614,5 +591,4 @@ export class RestaurantMenuService {
       order: { createdAt: 'DESC' },
     });
   }
-
 }

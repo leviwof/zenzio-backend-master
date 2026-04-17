@@ -16,7 +16,6 @@ import { FleetBankDetails } from '../fleet-v2/entity/fleet_bank_details.entity';
 import { RestaurantProfile } from '../restaurants/entity/restaurant_profile.entity';
 import { RestaurantBankDetails } from '../restaurants/entity/restaurant_bank_details.entity';
 
-
 import {
   buildRazorpayPayload,
   updateGroupPaymentInitiated,
@@ -90,9 +89,6 @@ export class RazorpayService {
     return { Authorization: `Basic ${token}` };
   }
 
-  
-  
-  
   async createOrder(
     amount: number,
     restaurantUid: string,
@@ -116,9 +112,6 @@ export class RazorpayService {
     return { ...order, key_id: this.keyId };
   }
 
-  
-  
-  
   async autoCapturePayment(paymentId: string, amount: number): Promise<RazorpayCaptureResponse> {
     if (!paymentId || !amount) {
       throw new BadRequestException('paymentId and amount are required');
@@ -127,13 +120,6 @@ export class RazorpayService {
     return await captureRazorpayPayment(paymentId, amount, this.keyId, this.keySecret);
   }
 
-  
-  
-  
-
-  
-  
-  
   async checkPaymentStatus(paymentId: string, orderId: string): Promise<RazorpayPaymentStatus> {
     if (!paymentId) {
       throw new BadRequestException('paymentId is required');
@@ -143,14 +129,12 @@ export class RazorpayService {
       throw new BadRequestException('orderId is required');
     }
 
-    
     const status: RazorpayPaymentStatus = await getRazorpayPaymentStatus(
       paymentId,
       this.keyId,
       this.keySecret,
     );
 
-    
     const group = await this.groupRepo.findOne({
       where: { raz_ord_id: orderId },
     });
@@ -159,7 +143,6 @@ export class RazorpayService {
       throw new NotFoundException(`Cart group not found for order id: ${orderId}`);
     }
 
-    
     const timestamp = new Date().toISOString();
 
     const logEntry: { code: string; desc: string; timestamp: string } = {
@@ -171,37 +154,31 @@ export class RazorpayService {
     const existingLogs = Array.isArray(group.logs) ? group.logs : [];
     group.logs = [...existingLogs, logEntry];
 
-    
-    group.raz_pay_id = status.id; 
-    group.raz_ord_id = status.order_id; 
+    group.raz_pay_id = status.id;
+    group.raz_ord_id = status.order_id;
 
-    group.pay_status = CartOrderStatus.PAYMENT_CAPTURED.code; 
+    group.pay_status = CartOrderStatus.PAYMENT_CAPTURED.code;
     group.pay_status_flag =
       status.status === 'captured' ? CartOrderStatus.PAYMENT_CAPTURED.label : 'failed';
 
     if (status.status === 'captured') {
-      group.status = CartOrderStatus.ORDER_CREATED_ONLINE.code; 
-      group.status_flag = CartOrderStatus.ORDER_CREATED_ONLINE.label; 
+      group.status = CartOrderStatus.ORDER_CREATED_ONLINE.code;
+      group.status_flag = CartOrderStatus.ORDER_CREATED_ONLINE.label;
     } else {
-      group.status = CartOrderStatus.PAYMENT_PENDING.code; 
+      group.status = CartOrderStatus.PAYMENT_PENDING.code;
       group.status_flag = CartOrderStatus.PAYMENT_PENDING.label;
     }
 
-    
     await this.groupRepo.save(group);
 
     return status;
   }
 
-  
-  
-  
   async verifyPayment(
     razorpayOrderId: string,
     razorpayPaymentId: string,
     signature: string,
   ): Promise<boolean> {
-    
     const expected = crypto
       .createHmac('sha256', this.keySecret)
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
@@ -211,7 +188,6 @@ export class RazorpayService {
 
     if (!isValid) return false;
 
-    
     console.log(`✅ Payment Verified for Razorpay Order: ${razorpayOrderId}`);
 
     const order = await this.orderRepo.findOne({ where: { razorpay_order_id: razorpayOrderId } });
@@ -219,20 +195,17 @@ export class RazorpayService {
     if (order) {
       console.log(`📦 Found Pending Order: ${order.orderId}`);
 
-      
       order.restaurantStatus = 'new';
       order.payment_mode = 'ONLINE';
       await this.orderRepo.save(order);
 
       console.log('✅ Order marked as NEW (Paid)');
 
-      
       if (order.coupon_code) {
         console.log(`🎟 Redeeming coupon: ${order.coupon_code}`);
         await this.couponsService.redeemCoupon(order.coupon_code);
       }
 
-      
       try {
         await this.notificationService.notifyOrderConfirmed(order.customer, order.orderId);
         await this.notificationService.notifyRestaurantNewOrder(
@@ -246,8 +219,6 @@ export class RazorpayService {
         console.error('⚠️ Failed to send notifications:', e);
       }
 
-      
-      
       const group = await this.groupRepo.findOne({ where: { raz_ord_id: razorpayOrderId } });
       if (group) {
         await this.groupRepo.remove(group);
@@ -260,9 +231,6 @@ export class RazorpayService {
     return true;
   }
 
-  
-  
-  
   async refundPartialPayment(paymentId: string, amount: number) {
     if (!paymentId || !amount) {
       throw new BadRequestException('paymentId and amount are required for partial refund');
@@ -273,21 +241,14 @@ export class RazorpayService {
     return await refundRazorpayPayment(paymentId, amountPaise, this.keyId, this.keySecret);
   }
 
-  
-  
-  
   async refundFullPayment(paymentId: string) {
     if (!paymentId) {
       throw new BadRequestException('paymentId is required for full refund');
     }
 
-    
     return await refundRazorpayPayment(paymentId, null, this.keyId, this.keySecret);
   }
 
-  
-  
-  
   async createCustomer(name: string, email: string, contact: string) {
     const payload = buildCustomerPayload(name, email, contact);
 
@@ -298,9 +259,6 @@ export class RazorpayService {
     return await fetchRazorpayCustomers(this.keyId, this.keySecret);
   }
 
-  
-  
-  
   async addBankAccount(customerId: string, name: string, ifsc: string, accountNumber: string) {
     const payload = buildFundAccountPayload(customerId, name, ifsc, accountNumber);
 
@@ -355,7 +313,7 @@ export class RazorpayService {
   }
 
   // ==========================================
-  // MASTER ADMIN PAYOUT APIS 
+  // MASTER ADMIN PAYOUT APIS
   // ==========================================
 
   async masterVerifyAndLink(uid: string, userType: 'fleet' | 'restaurant') {
@@ -378,22 +336,28 @@ export class RazorpayService {
     if (!profile) throw new NotFoundException(`${userType} profile not found`);
 
     const bankDetails = await bankRepo.findOne({ where: { [idColumn]: uid } });
-    if (!bankDetails) throw new NotFoundException(`${userType} bank details not found. Please ask them to add a bank first.`);
+    if (!bankDetails)
+      throw new NotFoundException(
+        `${userType} bank details not found. Please ask them to add a bank first.`,
+      );
 
     // 2. STEP 1: CHECK OR CREATE CONTACT
     let contactId = profile.razorpay_contact_id;
     if (!contactId) {
       console.log(`[Master API] No contact_id for ${uid}. Creating in Razorpay...`);
       // Fallback names if missing
-      const name = userType === 'fleet' ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Delivery Partner' : profile.restaurant_name || 'Restaurant Partner';
-      
+      const name =
+        userType === 'fleet'
+          ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Delivery Partner'
+          : profile.restaurant_name || 'Restaurant Partner';
+
       const newContact = await this.createContact({
         name: name,
         reference_id: uid,
-        notes: { type: userType }
+        notes: { type: userType },
       });
       contactId = newContact.id;
-      
+
       // Save instantly
       profile.razorpay_contact_id = contactId;
       await profileRepo.save(profile);
@@ -405,18 +369,20 @@ export class RazorpayService {
     if (!fundAccountId) {
       console.log(`[Master API] No fund_account_id for ${uid}. Creating in Razorpay...`);
       if (!bankDetails.account_number || !bankDetails.ifsc_code || !bankDetails.bank_name) {
-        throw new BadRequestException(`Incomplete bank details in DB for ${uid}. Cannot create Fund Account.`);
+        throw new BadRequestException(
+          `Incomplete bank details in DB for ${uid}. Cannot create Fund Account.`,
+        );
       }
 
       const newFundAccount = await this.addBankAccountForContact(
         contactId,
-        bankDetails.bank_name, 
+        bankDetails.bank_name,
         bankDetails.ifsc_code,
-        bankDetails.account_number
+        bankDetails.account_number,
       );
-      
+
       fundAccountId = newFundAccount.id;
-      
+
       // Save instantly
       bankDetails.razorpay_accid = fundAccountId;
       bankDetails.verified = false; // Need to verify now
@@ -426,36 +392,46 @@ export class RazorpayService {
 
     // 4. STEP 3: PENNY DROP VERIFICATION
     if (bankDetails.verified) {
-      return { status: 'success', message: 'Bank is already verified and ready for payouts.', contact_id: contactId, fund_account_id: fundAccountId };
+      return {
+        status: 'success',
+        message: 'Bank is already verified and ready for payouts.',
+        contact_id: contactId,
+        fund_account_id: fundAccountId,
+      };
     }
 
     console.log(`[Master API] Bank not verified for ${uid}. Initiating Penny Drop...`);
     try {
-      const verificationResponse = await verifyBankAccount({
-        fund_account: { id: fundAccountId },
-        amount: 100, // INR 1.00 (in paise)
-        currency: 'INR'
-      }, this.keyId, this.keySecret);
+      const verificationResponse = await verifyBankAccount(
+        {
+          fund_account: { id: fundAccountId },
+          amount: 100, // INR 1.00 (in paise)
+          currency: 'INR',
+        },
+        this.keyId,
+        this.keySecret,
+      );
 
       console.log(`[Master API] Penny Drop response:`, verificationResponse);
 
       // We consider it successful if Razorpay didn't throw an error directly.
       // Usually, Razorpay returns a status 'created' or 'processing'. Webhooks catch the exact active/failed.
       // For immediate DB state, we can assume initiated success, or check status if it's sync.
-      
+
       // We will mark it verified locally for this admin flow.
       bankDetails.verified = true;
       await bankRepo.save(bankDetails);
-      
-      return { 
-        status: 'success', 
-        message: 'Master Verify & Link Completed! Bank is now verified.', 
-        razorpay_response: verificationResponse 
-      };
 
+      return {
+        status: 'success',
+        message: 'Master Verify & Link Completed! Bank is now verified.',
+        razorpay_response: verificationResponse,
+      };
     } catch (error: any) {
       console.error(`[Master API] Penny drop failed:`, error?.response?.data || error.message);
-      throw new BadRequestException(`Verification failed: ${JSON.stringify(error?.response?.data || error.message)}`);
+      throw new BadRequestException(
+        `Verification failed: ${JSON.stringify(error?.response?.data || error.message)}`,
+      );
     }
   }
 
@@ -472,24 +448,30 @@ export class RazorpayService {
     }
 
     const bankDetails = await bankRepo.findOne({ where: { [idColumn]: uid } });
-    
+
     if (!bankDetails) {
       throw new BadRequestException('Bank details not found');
     }
 
     if (!bankDetails.razorpay_accid) {
-       throw new BadRequestException('No Razorpay Fund Account linked. Please run Master Verify & Link first.');
+      throw new BadRequestException(
+        'No Razorpay Fund Account linked. Please run Master Verify & Link first.',
+      );
     }
 
     if (!bankDetails.verified) {
-       throw new BadRequestException('Bank Account is not verified. Please run Master Verify & Link first.');
+      throw new BadRequestException(
+        'Bank Account is not verified. Please run Master Verify & Link first.',
+      );
     }
 
     // Dynamically import the util to avoid putting it at the top if we don't want to rewrite all imports
     const { createRazorpayPayout } = await import('./utils/razorpay-payout.util');
 
-    console.log(`[Admin Payout] Initiating payout of INR ${amount} to ${bankDetails.razorpay_accid} for ${uid}...`);
-    
+    console.log(
+      `[Admin Payout] Initiating payout of INR ${amount} to ${bankDetails.razorpay_accid} for ${uid}...`,
+    );
+
     return await createRazorpayPayout(
       bankDetails.razorpay_accid,
       amount,
@@ -498,7 +480,7 @@ export class RazorpayService {
       userType === 'fleet' ? 'salary' : 'payout',
       `PAYOUT_${uid}_${Date.now()}`,
       this.keyId,
-      this.keySecret
+      this.keySecret,
     );
   }
 }

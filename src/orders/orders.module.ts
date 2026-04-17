@@ -27,4 +27,4 @@ import { ReferralModule } from 'src/referral/referral.module';
   providers: [OrdersService, JwtServiceShared, UtilService],
   exports: [OrdersService],
 })
-export class OrdersModule { }
+export class OrdersModule {}

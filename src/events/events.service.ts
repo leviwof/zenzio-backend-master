@@ -1,4 +1,3 @@
-
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,7 +13,7 @@ export class EventsService {
     private readonly eventRepository: Repository<Event>,
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     await this.migrateColumns();
@@ -46,12 +45,11 @@ export class EventsService {
     return this.eventRepository.save(event);
   }
 
-  
   async createApproved(createEventDto: CreateEventDto): Promise<Event> {
     const event = this.eventRepository.create({
       ...createEventDto,
       restaurant_id: createEventDto.restaurant_id,
-      status: EventStatus.APPROVED, 
+      status: EventStatus.APPROVED,
     });
     return this.eventRepository.save(event);
   }
@@ -82,7 +80,8 @@ export class EventsService {
     const { status, restaurantId, page = 1, pageSize = 10, search } = params;
     const skip = (page - 1) * pageSize;
 
-    const queryBuilder = this.eventRepository.createQueryBuilder('event')
+    const queryBuilder = this.eventRepository
+      .createQueryBuilder('event')
       .leftJoinAndSelect('event.restaurant', 'restaurant')
       .leftJoinAndSelect('restaurant.profile', 'restaurantProfile')
       .orderBy('event.created_at', 'DESC')
@@ -97,7 +96,7 @@ export class EventsService {
 
         queryBuilder.andWhere(
           '(event.status = :status AND (event.date > :today OR (event.date = :today AND event.endTime >= :currentTime)))',
-          { status: EventStatus.APPROVED, today, currentTime }
+          { status: EventStatus.APPROVED, today, currentTime },
         );
       } else {
         queryBuilder.andWhere('event.status = :status', { status: status.toUpperCase() });
@@ -111,14 +110,14 @@ export class EventsService {
     if (search) {
       queryBuilder.andWhere(
         '(event.name ILIKE :search OR restaurantProfile.restaurant_name ILIKE :search)',
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 
     const [events, total] = await queryBuilder.getManyAndCount();
 
     return {
-      events: events.map(e => this.mapEventToFrontend(e)),
+      events: events.map((e) => this.mapEventToFrontend(e)),
       total,
       pages: Math.ceil(total / pageSize),
     };
@@ -137,10 +136,12 @@ export class EventsService {
     });
 
     return {
-      events: await Promise.all(events.map(async (e) => {
-        const c = await this.countBookedGuests(e.id);
-        return this.mapEventToFrontend(e, c);
-      })),
+      events: await Promise.all(
+        events.map(async (e) => {
+          const c = await this.countBookedGuests(e.id);
+          return this.mapEventToFrontend(e, c);
+        }),
+      ),
       total,
       pages: Math.ceil(total / pageSize),
     };
@@ -159,15 +160,13 @@ export class EventsService {
   private mapEventToFrontend(event: Event, bookedCount: number = 0) {
     const remaining = event.capacity - bookedCount;
 
-    
     const now = new Date();
-    
+
     const today = now.toISOString().split('T')[0];
-    const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); 
+    const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
 
     let computedStatus = event.status;
 
-    
     if (event.status !== EventStatus.REJECTED) {
       if (event.date < today) {
         computedStatus = EventStatus.EXPIRED;
@@ -178,10 +177,10 @@ export class EventsService {
 
     return {
       id: event.id,
-      name: event.name, 
-      eventName: event.name, 
-      description: event.description, 
-      eventDescription: event.description, 
+      name: event.name,
+      eventName: event.name,
+      description: event.description,
+      eventDescription: event.description,
       date: event.date,
       eventDate: event.date,
       startTime: event.startTime,
@@ -192,9 +191,9 @@ export class EventsService {
       capacity: event.capacity,
       max_persons: event.max_persons,
       remaining_capacity: remaining > 0 ? remaining : 0,
-      status: computedStatus, 
+      status: computedStatus,
       rejectionReason: event.rejectionReason,
-      restaurant_id: event.restaurant_id, 
+      restaurant_id: event.restaurant_id,
       createdAt: event.created_at,
       updatedAt: event.updated_at,
       restaurant: {
@@ -210,7 +209,7 @@ export class EventsService {
         seatingCapacity: event.capacity,
         description: event.description,
         photos: event.image ? [event.image] : [],
-      }
+      },
     };
   }
 
@@ -221,10 +220,12 @@ export class EventsService {
       relations: ['restaurant', 'restaurant.profile'],
     });
 
-    return Promise.all(events.map(async (e) => {
-      const c = await this.countBookedGuests(e.id);
-      return this.mapEventToFrontend(e, c);
-    }));
+    return Promise.all(
+      events.map(async (e) => {
+        const c = await this.countBookedGuests(e.id);
+        return this.mapEventToFrontend(e, c);
+      }),
+    );
   }
 
   async findOne(id: string): Promise<any> {

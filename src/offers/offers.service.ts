@@ -15,11 +15,9 @@ export class OfferService {
     private readonly offerImagesService: OfferImagesService,
   ) {}
 
-  
   async createOffer(dto: CreateOfferDto, image?: MulterFile) {
     let offerImage: string | undefined;
 
-    
     if (image) {
       const uploadResult = await this.offerImagesService.uploadOfferImage(image);
       offerImage = uploadResult.url;
@@ -36,7 +34,6 @@ export class OfferService {
     return this.repo.save(offer);
   }
 
-  
   async getOffersByRestaurant(restaurantId: string, page: number = 1, limit: number = 100) {
     const skip = (page - 1) * limit;
     return this.repo.find({
@@ -47,7 +44,6 @@ export class OfferService {
     });
   }
 
-  
   async updateOffer(id: string, dto: UpdateOfferDto, image?: MulterFile) {
     const existingOffer = await this.repo.findOneBy({ id });
     if (!existingOffer) {
@@ -84,7 +80,6 @@ export class OfferService {
     return this.repo.findOneBy({ id });
   }
 
-  
   async deleteOffer(id: string) {
     return this.repo.delete(id);
   }
@@ -98,7 +93,6 @@ export class OfferService {
     const take = Number(pageSize) || 10;
     const skip = (Number(page) - 1) * take;
 
-    
     const allowedFields = [
       'restaurantId',
       'status',
@@ -108,13 +102,10 @@ export class OfferService {
     ];
     const filter: any = {};
 
-    
     if (approvalStatus) {
       filter.status = approvalStatus;
     }
-    
 
-    
     Object.keys(restResponse).forEach((key) => {
       if (
         allowedFields.includes(key) &&
@@ -207,7 +198,6 @@ export class OfferService {
   async createOfferByAdmin(dto: CreateOfferDto, image?: MulterFile) {
     let offerImage: string | undefined;
 
-    
     if (image) {
       const uploadResult = await this.offerImagesService.uploadOfferImage(image);
       offerImage = uploadResult.url;
@@ -226,7 +216,6 @@ export class OfferService {
   async updateAdminOffer(id: string, dto: UpdateOfferDto, image?: MulterFile) {
     const updateData: any = { ...dto };
 
-    
     if (image) {
       const uploadResult = await this.offerImagesService.uploadOfferImage(image);
       updateData.offerImage = uploadResult.url;

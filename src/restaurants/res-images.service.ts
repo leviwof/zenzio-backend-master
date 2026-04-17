@@ -49,9 +49,7 @@ export class RFileService {
       throw new BadRequestException('Invalid rest UID');
     }
 
-    const existingImages = (rest.photo ?? []).map((image) =>
-      this.buildRestaurantImageUrl(image),
-    );
+    const existingImages = (rest.photo ?? []).map((image) => this.buildRestaurantImageUrl(image));
     const bucket = process.env.AWS_BUCKET_NAME!;
     const results: ResImageUploadResponse[] = [];
 

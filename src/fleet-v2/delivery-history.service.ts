@@ -15,7 +15,7 @@ export class DeliveryHistoryService {
     private readonly orderRepo: Repository<Order>,
     @InjectRepository(Fleet)
     private readonly fleetRepo: Repository<Fleet>,
-  ) { }
+  ) {}
 
   // ==========================================================
   // CREATE DELIVERY HISTORY WHEN ORDER IS ACCEPTED
