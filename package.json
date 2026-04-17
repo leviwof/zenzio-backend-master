@@ -69,8 +69,7 @@
     "tsconfig-paths": "^4.2.0",
     "typeorm": "^0.3.24",
     "typescript": "^5.8.3",
-    "ws": "^8.18.3",
-    "xlsx": "^0.18.5"
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
