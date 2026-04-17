@@ -172,7 +172,7 @@ export class Restaurant_menuController {
   }
 
   @Post('admin-bulk-upload')
-  @UseInterceptors(FilesInterceptor('files', 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(FilesInterceptor('file', 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
   @ApiOperation({ summary: 'Admin bulk upload menu items from Excel/CSV file' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Menu items created successfully by admin' })
@@ -187,15 +187,21 @@ export class Restaurant_menuController {
       }
 
       const file = files[0];
-      const fileType = file.originalname.split('.').pop()?.toLowerCase();
+      const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
 
-      if (!['xlsx', 'xls', 'csv'].includes(fileType)) {
+      if (!fileExtension || !['xlsx', 'xls', 'csv'].includes(fileExtension)) {
         throw new BadRequestException('Only Excel (.xlsx, .xls) or CSV files are allowed');
+      }
+
+      const restaurantUidFromBody = data?.restaurant_uid;
+
+      if (!restaurantUidFromBody) {
+        throw new BadRequestException('restaurant_uid is required');
       }
 
       let rows: any[] = [];
 
-      if (fileType === 'csv') {
+      if (fileExtension === 'csv') {
         const content = file.buffer.toString('utf-8');
         const lines = content.split(/\r?\n/).filter(line => line.trim());
         if (lines.length === 0) {
@@ -227,10 +233,6 @@ export class Restaurant_menuController {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         try {
-          if (!row.restaurant_uid) {
-            errors.push(`Row ${i + 2}: restaurant_uid is required`);
-            continue;
-          }
           if (!row.menu_name) {
             errors.push(`Row ${i + 2}: menu_name is required`);
             continue;
@@ -241,7 +243,7 @@ export class Restaurant_menuController {
           }
 
           const menuData = {
-            restaurant_uid: String(row.restaurant_uid),
+            restaurant_uid: restaurantUidFromBody,
             menu_name: String(row.menu_name),
             price: parseFloat(String(row.price)) || 0,
             discount: row.discount ? parseInt(String(row.discount), 10) : 0,
@@ -269,7 +271,7 @@ export class Restaurant_menuController {
           items: createdItems,
           errors: errors.length > 0 ? errors : undefined,
         },
-        message: `Bulk upload completed: ${createdItems.length} items created, ${errors.length} errors`,
+        message: errors.length > 0 ? 'Bulk upload failed' : 'Bulk uploaded successfully',
         meta: { timestamp: new Date().toISOString() },
       };
     } catch (error: unknown) {
