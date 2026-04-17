@@ -38,6 +38,7 @@ import { OperationalHour } from './entity/operational_hour.entity';
 import { MailService } from 'src/mail/mail.service';
 
 import { UpdateRestaurantProfileDto } from './dto/restaurant-profile.dto';
+import { UpdateRestaurantDocumentDto } from './dto/update-restaurant-document.dto';
 import { OperationalHourDto } from './dto/operational-hour.dto';
 import { UpdateRestaurantAddressDto } from './dto/update-restaurant-address.dto';
 import { UpdateBankDetailsDto } from './dto/update-bank-details.dto';
@@ -615,6 +616,36 @@ export class RestaurantsService implements OnModuleInit {
     Object.assign(address, dto);
 
     return await this.restaurantAddressRepository.save(address);
+  }
+
+  async updateDocumentsByUid(restaurantUid: string, dto: UpdateRestaurantDocumentDto) {
+    let documents = await this.restaurantDocsRepo.findOne({
+      where: { restaurantUid },
+    });
+
+    if (!documents) {
+      const restaurant = await this.restaurantRepository.findOne({
+        where: { uid: restaurantUid },
+      });
+      if (!restaurant) {
+        throw new NotFoundException('Restaurant not found');
+      }
+      documents = await this.restaurantDocsRepo.save({
+        restaurantUid,
+        restaurant,
+      });
+    }
+
+    const { file_fssai, file_gst, file_trade_license, file_other_doc, ...docNumbers } = dto;
+
+    Object.assign(documents, docNumbers);
+
+    if (file_fssai !== undefined) documents.file_fssai = file_fssai;
+    if (file_gst !== undefined) documents.file_gst = file_gst;
+    if (file_trade_license !== undefined) documents.file_trade_license = file_trade_license;
+    if (file_other_doc !== undefined) documents.file_other_doc = file_other_doc;
+
+    return await this.restaurantDocsRepo.save(documents);
   }
 
   async updateBankDetails(restaurantUid: string, dto: UpdateBankDetailsDto) {

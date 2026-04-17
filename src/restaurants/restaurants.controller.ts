@@ -48,6 +48,7 @@ import { UpdateOperationalHoursDto } from './dto/operational-hour.dto';
 import { UpdateRestaurantAddressDto } from './dto/update-restaurant-address.dto';
 import { UpdateBankDetailsDto } from './dto/update-bank-details.dto';
 import { ChangePasswordDto, ResetPasswordDto } from './dto/change-password.dto';
+import { UpdateRestaurantDocumentDto } from './dto/update-restaurant-document.dto';
 import { AuthRequest, RequestWithUser } from 'src/types/auth-request';
 import { RolesDecorator } from 'src/auth/app.decorator';
 import { Roles as RoleEnum } from 'src/constants/app.enums';
@@ -371,6 +372,72 @@ export class RestaurantsController {
       code: 200,
       data: { restaurant },
       message: 'Restaurant fetched successfully',
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  @Put(':uid/admin/address')
+  @RolesDecorator(RoleEnum.MASTER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Update restaurant address (Admin)' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'uid', example: 'RES-123ABC', description: 'Restaurant UID' })
+  @ApiResponse({ status: 200, description: 'Address updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  async updateAddressByAdmin(
+    @Param('uid') uid: string,
+    @Body() dto: UpdateRestaurantAddressDto,
+  ) {
+    const address = await this.restaurantService.updateAddress(uid, dto);
+    return {
+      status: 'success',
+      code: 200,
+      data: address,
+      message: 'Address updated successfully',
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  @Put(':uid/admin/profile')
+  @RolesDecorator(RoleEnum.MASTER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Update restaurant profile (Admin)' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'uid', example: 'RES-123ABC', description: 'Restaurant UID' })
+  @ApiResponse({ status: 200, description: 'Profile updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  async updateProfileByAdmin(
+    @Param('uid') uid: string,
+    @Body() dto: UpdateRestaurantProfileDto,
+  ) {
+    const profile = await this.restaurantService.updateProfile(uid, dto);
+    return {
+      status: 'success',
+      code: 200,
+      data: profile,
+      message: 'Profile updated successfully',
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  @Put(':uid/admin/documents')
+  @RolesDecorator(RoleEnum.MASTER_ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Update restaurant documents (Admin)' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'uid', example: 'RES-123ABC', description: 'Restaurant UID' })
+  @ApiResponse({ status: 200, description: 'Documents updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  async updateDocumentsByAdmin(
+    @Param('uid') uid: string,
+    @Body() dto: UpdateRestaurantDocumentDto,
+  ) {
+    const documents = await this.restaurantService.updateDocumentsByUid(uid, dto);
+    return {
+      status: 'success',
+      code: 200,
+      data: documents,
+      message: 'Documents updated successfully',
       meta: { timestamp: new Date().toISOString() },
     };
   }
