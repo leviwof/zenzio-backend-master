@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -6,7 +17,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('events')
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) { }
+  constructor(private readonly eventsService: EventsService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -31,7 +42,7 @@ export class EventsController {
     return {
       status: 'success',
       data: result,
-      message: 'Event created successfully by admin'
+      message: 'Event created successfully by admin',
     };
   }
 

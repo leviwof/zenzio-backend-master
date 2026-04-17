@@ -5,9 +5,9 @@ import { GlobalSettingsService } from './global-settings.service';
 import { GlobalSettings } from './entity/global-settings.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([GlobalSettings])],
-    controllers: [GlobalSettingsController],
-    providers: [GlobalSettingsService],
-    exports: [GlobalSettingsService],
+  imports: [TypeOrmModule.forFeature([GlobalSettings])],
+  controllers: [GlobalSettingsController],
+  providers: [GlobalSettingsService],
+  exports: [GlobalSettingsService],
 })
-export class GlobalSettingsModule { }
+export class GlobalSettingsModule {}

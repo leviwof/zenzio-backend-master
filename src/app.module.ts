@@ -70,14 +70,12 @@ import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-
     MailModule,
     AppConfigModule,
     CommonModule,
     DbConfigModule,
     EncryptionModule,
     FirebaseModule,
-
 
     EnumsModule,
     AuthModule,
@@ -115,7 +113,6 @@ import { HealthModule } from './health/health.module';
 
     TypeOrmModule.forFeature([Session, SuperAdmin, Banner]),
 
-
     GlobalErrorModule.forRoot(),
   ],
   controllers: [AppController, TestController],
@@ -129,7 +126,7 @@ import { HealthModule } from './health/health.module';
   exports: [AppConfigService],
 })
 export class AppModule implements NestModule, OnModuleInit {
-  constructor(private readonly superAdminService: SuperAdminService) { }
+  constructor(private readonly superAdminService: SuperAdminService) {}
 
   configure(consumer: MiddlewareConsumer) {
     consumer

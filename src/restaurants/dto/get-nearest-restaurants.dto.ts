@@ -45,7 +45,6 @@ export class GetNearestRestaurantsDto {
   @IsOptional()
   limit?: number = 10;
 
-
   @IsString()
   @IsOptional()
   @ApiPropertyOptional({ example: 'pizza' })

@@ -21,9 +21,6 @@ import { RazorpayService } from 'src/payments/razorpay.service';
 import { NotificationService } from 'src/notifications/notification.service';
 import { CouponsService } from 'src/coupons/coupons.service';
 
-
-
-
 @Injectable()
 export class CartService {
   constructor(
@@ -32,7 +29,8 @@ export class CartService {
     @InjectRepository(CartItem) private itemRepo: Repository<CartItem>,
     @InjectRepository(CartItem) private menuRepo: Repository<RestaurantMenu>,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
-    @InjectRepository(RestaurantProfile) private restaurantProfileRepo: Repository<RestaurantProfile>,
+    @InjectRepository(RestaurantProfile)
+    private restaurantProfileRepo: Repository<RestaurantProfile>,
     @InjectRepository(RestaurantDocument) private restaurantDocRepo: Repository<RestaurantDocument>,
 
     private readonly deliveryLocationService: DeliveryLocationService,
@@ -40,10 +38,7 @@ export class CartService {
     private readonly razorpayService: RazorpayService,
     private readonly notificationService: NotificationService,
     private readonly couponsService: CouponsService,
-  ) { }
-
-
-
+  ) {}
 
   async getCart(user_uid: string) {
     return this.cartRepo.findOne({ where: { user_uid } });
@@ -56,13 +51,10 @@ export class CartService {
     });
 
     if (cart && cart.groups) {
-
       cart.groups = cart.groups.filter((g) => !['C011', 'C012', 'S012', 'D001'].includes(g.status));
-
 
       if (cart && cart.groups && cart.groups.length > 0) {
         const restaurantUids = cart.groups.map((g) => g.restaurant_uid);
-
 
         const restaurants = await this.groupRepo.manager
           .createQueryBuilder()
@@ -73,12 +65,10 @@ export class CartService {
           .where('r.uid IN (:...uids)', { uids: restaurantUids })
           .getRawMany();
 
-
         const nameMap = new Map();
         restaurants.forEach((r) => {
           nameMap.set(r.uid, r.restaurant_name || 'Unknown Restaurant');
         });
-
 
         const menuUids: string[] = [];
         cart.groups.forEach((g) => {
@@ -87,8 +77,7 @@ export class CartService {
           });
         });
 
-
-        let menuMap = new Map();
+        const menuMap = new Map();
         if (menuUids.length > 0) {
           const menus = await this.groupRepo.manager
             .createQueryBuilder()
@@ -105,10 +94,8 @@ export class CartService {
           console.log('📦 Menu data fetched:', menus);
         }
 
-
         cart.groups.forEach((g) => {
           (g as any).restaurant_name = nameMap.get(g.restaurant_uid) || 'Unknown Restaurant';
-
 
           g.items?.forEach((item: any) => {
             const menuData = menuMap.get(item.menu_uid);
@@ -124,9 +111,6 @@ export class CartService {
 
     return cart;
   }
-
-
-
 
   async addItem(user_uid: string, dto: AddToCartDto) {
     let cart = await this.getCart(user_uid);
@@ -162,9 +146,6 @@ export class CartService {
       item.total_price = item.qty * item.price;
       await this.itemRepo.save(item);
 
-
-
-
       group.status = CartOrderStatus.ADDED_TO_CART.code;
       group.status_flag = CartOrderStatus.ADDED_TO_CART.label;
 
@@ -196,9 +177,6 @@ export class CartService {
     return this.getCartWithItems(user_uid);
   }
 
-
-
-
   async updateItem(user_uid: string, item_id: number, dto: UpdateCartItemDto) {
     const item = await this.itemRepo.findOne({
       where: { id: item_id },
@@ -223,9 +201,6 @@ export class CartService {
     return this.getCartWithItems(user_uid);
   }
 
-
-
-
   async removeItem(user_uid: string, item_id: number) {
     const item = await this.itemRepo.findOne({
       where: { id: item_id },
@@ -243,9 +218,6 @@ export class CartService {
 
     return this.getCartWithItems(user_uid);
   }
-
-
-
 
   async clearGroup(user_uid: string, restaurant_uid: string) {
     const cart = await this.getCart(user_uid);
@@ -265,9 +237,6 @@ export class CartService {
     return this.getCartWithItems(user_uid);
   }
 
-
-
-
   async clearCart(user_uid: string) {
     const cart = await this.getCartWithItems(user_uid);
 
@@ -280,9 +249,6 @@ export class CartService {
 
     return this.getCartWithItems(user_uid);
   }
-
-
-
 
   async recalculateGroupTotals(group_id: number) {
     const items = await this.itemRepo.find({
@@ -304,9 +270,6 @@ export class CartService {
     });
   }
 
-
-
-
   async recalculateCartTotals(cart_id: number) {
     const groups = await this.groupRepo.find({
       where: { cart: { id: cart_id } },
@@ -317,21 +280,15 @@ export class CartService {
     await this.cartRepo.update(cart_id, { grand_total });
   }
 
-
-
-
-
   async getItemsByRestaurant(user_uid: string, restaurant_uid: string) {
     const group = await this.groupRepo.findOne({
       where: { restaurant_uid, cart: { user_uid } },
       relations: ['items', 'items.menu'],
       select: {
-
         id: true,
         cart_group_uid: true,
         restaurant_uid: true,
         subtotal: true,
-
 
         items: {
           id: true,
@@ -341,7 +298,6 @@ export class CartService {
           price: true,
           qty: true,
           total_price: true,
-
 
           menu: {
             images: true,
@@ -364,7 +320,6 @@ export class CartService {
     startDate?: string,
     endDate?: string,
   ): Promise<any[]> {
-
     const defaultStatuses = [
       'new',
       'accepted',
@@ -470,9 +425,6 @@ export class CartService {
     }
   }
 
-
-
-
   async getItemsByGroupId(user_uid: string, groupId: number) {
     const group = await this.groupRepo.findOne({
       where: { id: groupId, cart: { user_uid } },
@@ -481,17 +433,13 @@ export class CartService {
 
     if (!group) throw new NotFoundException('Group not found');
 
-
     const addressDetails = await this.deliveryLocationService.addAddressToCartGroup(
       user_uid,
       group.address_type,
     );
 
     return { group, addressDetails };
-
-
   }
-
 
   private generateOTP(): string {
     return Math.floor(1000 + Math.random() * 9000).toString();
@@ -555,7 +503,8 @@ export class CartService {
     const isGstRegistered = Boolean(restaurantDoc?.gst_number?.toString().trim());
     const taxes = isGstRegistered ? (dto.taxes ?? itemTotal * 0.05) : 0;
 
-    const grandTotal = dto.price ?? itemTotal + deliveryFee + taxes + packingCharge - couponDiscount;
+    const grandTotal =
+      dto.price ?? itemTotal + deliveryFee + taxes + packingCharge - couponDiscount;
 
     if (dto.coupon_code) {
       console.log(`🎟 Validating coupon: ${dto.coupon_code} for user: ${user_uid}`);
@@ -588,13 +537,16 @@ export class CartService {
       existingPendingOrder.payment_mode = pay_mode;
       existingPendingOrder.coupon_code = dto.coupon_code ?? (null as unknown as string);
       existingPendingOrder.coupon_discount = dto.coupon_discount ?? 0;
-      existingPendingOrder.delivery_address = dto.delivery_address ?? existingPendingOrder.delivery_address;
-      existingPendingOrder.restaurant_lat = dto.restaurant_lat ?? existingPendingOrder.restaurant_lat;
-      existingPendingOrder.restaurant_lng = dto.restaurant_lng ?? existingPendingOrder.restaurant_lng;
+      existingPendingOrder.delivery_address =
+        dto.delivery_address ?? existingPendingOrder.delivery_address;
+      existingPendingOrder.restaurant_lat =
+        dto.restaurant_lat ?? existingPendingOrder.restaurant_lat;
+      existingPendingOrder.restaurant_lng =
+        dto.restaurant_lng ?? existingPendingOrder.restaurant_lng;
       existingPendingOrder.customer_lat = dto.customer_lat ?? existingPendingOrder.customer_lat;
       existingPendingOrder.customer_lng = dto.customer_lng ?? existingPendingOrder.customer_lng;
       existingPendingOrder.distance_km = dto.distance_km ?? existingPendingOrder.distance_km;
-      existingPendingOrder.admin_commission = Number((itemTotal - (itemTotal / 1.08)).toFixed(2));
+      existingPendingOrder.admin_commission = Number((itemTotal - itemTotal / 1.08).toFixed(2));
 
       if (pay_mode === 'COD') {
         // Switching from ONLINE → COD: clear all Razorpay fields
@@ -614,7 +566,6 @@ export class CartService {
 
       savedOrder = await this.orderRepo.save(existingPendingOrder);
       console.log(`✅ Existing Order updated: ${savedOrder.orderId}`);
-
     } else {
       // No existing pending order → create a fresh one (original behaviour)
       const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -641,7 +592,7 @@ export class CartService {
         payment_mode: pay_mode,
         coupon_code: dto.coupon_code,
         coupon_discount: dto.coupon_discount,
-        admin_commission: Number((itemTotal - (itemTotal / 1.08)).toFixed(2)),
+        admin_commission: Number((itemTotal - itemTotal / 1.08).toFixed(2)),
         packing_charge: packingCharge,
       });
 
@@ -690,7 +641,6 @@ export class CartService {
         group.restaurant_uid,
         group_uid,
       );
-
 
       savedOrder.razorpay_order_id = razorpayOrder.id;
       await this.orderRepo.save(savedOrder);

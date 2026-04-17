@@ -4,15 +4,15 @@ import { UpdateGlobalSettingsDto } from './dto/update-global-settings.dto';
 
 @Controller('global-settings')
 export class GlobalSettingsController {
-    constructor(private readonly settingsService: GlobalSettingsService) { }
+  constructor(private readonly settingsService: GlobalSettingsService) {}
 
-    @Get()
-    getSettings() {
-        return this.settingsService.getSettings();
-    }
+  @Get()
+  getSettings() {
+    return this.settingsService.getSettings();
+  }
 
-    @Patch()
-    updateSettings(@Body() updateDto: UpdateGlobalSettingsDto) {
-        return this.settingsService.updateSettings(updateDto);
-    }
+  @Patch()
+  updateSettings(@Body() updateDto: UpdateGlobalSettingsDto) {
+    return this.settingsService.updateSettings(updateDto);
+  }
 }

@@ -45,4 +45,4 @@ import { ReferralModule } from 'src/referral/referral.module';
   ],
   exports: [UsersService],
 })
-export class UsersModule { }
+export class UsersModule {}

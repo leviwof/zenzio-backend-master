@@ -24,7 +24,7 @@ export class DiningSpaceController {
   constructor(
     private readonly diningSpaceService: DiningSpaceService,
     private readonly s3Util: S3Util,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(AccessTokenAuthGuard)
@@ -87,7 +87,7 @@ export class DiningSpaceController {
     return {
       status: 'success',
       data: result,
-      message: 'Dining space created successfully by admin'
+      message: 'Dining space created successfully by admin',
     };
   }
 
@@ -155,7 +155,7 @@ export class DiningSpaceController {
         ...(Array.isArray(existing) ? existing : [existing]).filter(Boolean),
         ...photoUrls,
       ];
-      updateDiningSpaceDto.photoUrls = newUrls as string[];
+      updateDiningSpaceDto.photoUrls = newUrls;
     }
     return this.diningSpaceService.update(id, updateDiningSpaceDto);
   }

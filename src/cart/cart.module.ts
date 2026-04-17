@@ -8,10 +8,6 @@ import { CartGroup } from './entity/cart-group.entity';
 import { Cart } from './entity/cart.entity';
 import { CartItem } from './entity/cart-item.entity';
 
-
-
-
-
 import { JwtServiceShared } from 'src/shared/jwt.service';
 import { UtilService } from 'src/utils/util.service';
 import { CartStatusController } from './cart-status.controller';
@@ -24,9 +20,6 @@ import { RestaurantOrderService } from './restaurant-order.service';
 import { FleetOrderService } from './fleet-order.service';
 import { FleetOrderController } from './fleet-order.controller';
 import { CartGroupService } from './cart-group.service';
-
-
-
 
 import { Order } from 'src/orders/order.entity';
 import { Fleet } from 'src/fleet-v2/entity/fleet.entity';
@@ -77,4 +70,4 @@ import { CouponsModule } from 'src/coupons/coupons.module';
     CartGroupService,
   ],
 })
-export class CartModule { }
+export class CartModule {}

@@ -16,10 +16,6 @@ import { CouponsService } from './coupons.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 
-
-
-
-
 @Controller('coupons')
 export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
@@ -42,9 +38,7 @@ export class CouponsController {
     // If an Admin calls this, their personal UID from the token is ignored.
     // We only use queryUserUid if the admin explicitly searches for a user.
     // For mobile users, we force their personal UID.
-    const userUid = isAdmin
-      ? queryUserUid
-      : req?.me?.uid || req?.user?.uid || queryUserUid;
+    const userUid = isAdmin ? queryUserUid : req?.me?.uid || req?.user?.uid || queryUserUid;
 
     console.log(`🔍 Coupons Fetch - Role: ${roleStr}, isAdmin: ${isAdmin}, Target UID: ${userUid}`);
     return this.couponsService.findAll(search, status, userUid, isAdmin);

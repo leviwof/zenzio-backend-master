@@ -17,13 +17,13 @@ import { RestaurantBankDetails } from '../restaurants/entity/restaurant_bank_det
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      CartGroup, 
-      Order, 
-      FleetProfile, 
-      FleetBankDetails, 
-      RestaurantProfile, 
-      RestaurantBankDetails
-    ]), 
+      CartGroup,
+      Order,
+      FleetProfile,
+      FleetBankDetails,
+      RestaurantProfile,
+      RestaurantBankDetails,
+    ]),
     forwardRef(() => NotificationModule),
     CouponsModule,
   ],

@@ -77,7 +77,6 @@ export class Coupon {
   @Column({ nullable: true, default: null })
   source: string; // 'referral_joinee' | 'referral_reward' | null
 
-
   @CreateDateColumn()
   createdAt: Date;
 

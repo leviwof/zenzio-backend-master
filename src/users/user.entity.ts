@@ -34,13 +34,11 @@ export class User {
   @Column({ nullable: true })
   role: string;
 
-
   @Column({ type: 'boolean', default: false })
   status: boolean;
 
   @Column({ type: 'varchar', nullable: true })
   status_flag: string;
-
 
   @Column({ type: 'boolean', default: false })
   isActive: boolean;
@@ -62,7 +60,6 @@ export class User {
 
   @Column({ nullable: true })
   referred_by: string; // refer_code of the user who referred them
-
 
   @CreateDateColumn()
   createdAt: Date;

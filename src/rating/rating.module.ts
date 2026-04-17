@@ -13,4 +13,4 @@ import { Fleet } from '../fleet-v2/entity/fleet.entity';
   controllers: [RatingController],
   providers: [RatingService],
 })
-export class RatingModule { }
+export class RatingModule {}

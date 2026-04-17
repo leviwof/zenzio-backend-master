@@ -15,15 +15,15 @@ export class BaseSingleRatingDto {
   description?: string;
 }
 
-export class CustRestaurantRatingDto extends BaseSingleRatingDto { }
-export class CustFleetRatingDto extends BaseSingleRatingDto { }
-export class FleetCustRatingDto extends BaseSingleRatingDto { }
-export class FleetRestRatingDto extends BaseSingleRatingDto { }
-export class RestFleetRatingDto extends BaseSingleRatingDto { }
-export class RestCustRatingDto extends BaseSingleRatingDto { }
-export class CusAppRatingDto extends BaseSingleRatingDto { }
-export class RestAppRatingDto extends BaseSingleRatingDto { }
-export class FleetAppRatingDto extends BaseSingleRatingDto { }
+export class CustRestaurantRatingDto extends BaseSingleRatingDto {}
+export class CustFleetRatingDto extends BaseSingleRatingDto {}
+export class FleetCustRatingDto extends BaseSingleRatingDto {}
+export class FleetRestRatingDto extends BaseSingleRatingDto {}
+export class RestFleetRatingDto extends BaseSingleRatingDto {}
+export class RestCustRatingDto extends BaseSingleRatingDto {}
+export class CusAppRatingDto extends BaseSingleRatingDto {}
+export class RestAppRatingDto extends BaseSingleRatingDto {}
+export class FleetAppRatingDto extends BaseSingleRatingDto {}
 
 import { IsString, IsNumber, IsOptional, IsNotEmpty } from 'class-validator';
 
@@ -43,7 +43,11 @@ export class SubmitOrderRatingDto {
   @IsOptional()
   restaurantReview?: string;
 
-  @ApiProperty({ required: false, example: 5, description: 'Rating for the Delivery Partner (1-5)' })
+  @ApiProperty({
+    required: false,
+    example: 5,
+    description: 'Rating for the Delivery Partner (1-5)',
+  })
   @IsNumber()
   @IsOptional()
   driverRating?: number;

@@ -1,4 +1,3 @@
-
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as firebaseAdmin from 'firebase-admin';
 import axios, { AxiosResponse } from 'axios';
@@ -81,7 +80,6 @@ export class FirebaseService {
     this.apiKey = key;
   }
 
-  
   async registerUser(
     firstName: string,
     lastName: string,
@@ -90,7 +88,6 @@ export class FirebaseService {
     phoneNumber?: string,
   ): Promise<firebaseAdmin.auth.UserRecord> {
     try {
-      
       const userRecord: firebaseAdmin.auth.UserRecord = await firebaseAdmin.auth().createUser({
         displayName: `${firstName} ${lastName}`,
         email,
@@ -99,14 +96,12 @@ export class FirebaseService {
       });
       return userRecord;
     } catch (error: any) {
-      
       if (error.code === 'auth/email-already-exists') {
         console.log(`⚠️ Firebase account already exists for ${email}, reusing existing UID.`);
         const existingUser = await firebaseAdmin.auth().getUserByEmail(email);
         return existingUser;
       }
 
-      
       if (error.code === 'auth/invalid-password') {
         throw new BadRequestException('Password must be at least 6 characters.');
       }
@@ -116,7 +111,6 @@ export class FirebaseService {
   }
 
   async loginUser(email: string, password: string, userType = '4'): Promise<any> {
-    
     const url = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${this.apiKey}`;
 
     try {
@@ -130,12 +124,11 @@ export class FirebaseService {
         throw new Error('Invalid Firebase response');
       }
 
-      
       const fireBaseUser = await admin.auth().verifyIdToken(response.idToken);
       const firebase_uid = fireBaseUser.uid;
       const firebase_email = fireBaseUser.email;
       const email_verified = fireBaseUser.email_verified;
-      
+
       let user: any = null;
 
       if (userType === Roles.USER_FLEET) {
@@ -148,26 +141,35 @@ export class FirebaseService {
 
       // --- AUTO-REPAIR LOGIC: If UID mismatch but email exists in contact table ---
       if (!user && firebase_email) {
-        console.log(`🔍 [AuthRepair] UID mismatch for ${firebase_email}. Searching by contact email...`);
+        console.log(
+          `🔍 [AuthRepair] UID mismatch for ${firebase_email}. Searching by contact email...`,
+        );
         if (userType === Roles.USER_RESTAURANT) {
-          user = await this.restaurantRepository.createQueryBuilder('restaurant')
+          user = await this.restaurantRepository
+            .createQueryBuilder('restaurant')
             .leftJoinAndSelect('restaurant.contact', 'contact')
             .where('contact.encryptedEmail = :email', { email: firebase_email })
             .getOne();
         } else if (userType === Roles.USER_FLEET) {
-          user = await this.fleetRepository.createQueryBuilder('fleet')
+          user = await this.fleetRepository
+            .createQueryBuilder('fleet')
             .leftJoinAndSelect('fleet.contact', 'contact')
-            .where('contact.encryptedEmail = :email OR contact.contactEmail = :email', { email: firebase_email })
+            .where('contact.encryptedEmail = :email OR contact.contactEmail = :email', {
+              email: firebase_email,
+            })
             .getOne();
         } else {
-          user = await this.userRepository.createQueryBuilder('user')
+          user = await this.userRepository
+            .createQueryBuilder('user')
             .leftJoinAndSelect('user.contact', 'contact')
             .where('contact.encryptedEmail = :email', { email: firebase_email })
             .getOne();
         }
 
         if (user) {
-          console.log(`🔧 [AuthRepair] Found orphan account. Updating firebase_uid to ${firebase_uid}`);
+          console.log(
+            `🔧 [AuthRepair] Found orphan account. Updating firebase_uid to ${firebase_uid}`,
+          );
           user.firebase_uid = firebase_uid;
           if (userType === Roles.USER_FLEET) {
             await this.fleetRepository.save(user);
@@ -196,8 +198,7 @@ export class FirebaseService {
         };
       }
 
-      
-      if (userType === Roles.USER_FLEET && !(user as any).status) {
+      if (userType === Roles.USER_FLEET && !user.status) {
         throw new UnauthorizedException(
           'Your account is pending admin approval. You will be able to login once an admin approves your registration.',
         );
@@ -214,8 +215,6 @@ export class FirebaseService {
 
       const accessToken = this.jwtService.generateAccessToken(payload);
       const refreshToken = await this.jwtService.generateRefreshToken(payload);
-
-      
 
       return {
         user: {
@@ -331,7 +330,9 @@ export class FirebaseService {
     }
 
     if (!user) {
-      console.warn(`[updateVerificationFlags] User not found for ${userType}: firebase_uid=${firebase_uid}`);
+      console.warn(
+        `[updateVerificationFlags] User not found for ${userType}: firebase_uid=${firebase_uid}`,
+      );
       return;
     }
 
@@ -572,7 +573,9 @@ export class FirebaseService {
 
     try {
       const userCount = await this.userRepository.count({ where: { firebase_uid: firebaseUid } });
-      const restaurantCount = await this.restaurantRepository.count({ where: { firebase_uid: firebaseUid } });
+      const restaurantCount = await this.restaurantRepository.count({
+        where: { firebase_uid: firebaseUid },
+      });
       const fleetCount = await this.fleetRepository.count({ where: { firebase_uid: firebaseUid } });
 
       if (userCount === 0 && restaurantCount === 0 && fleetCount === 0) {
@@ -580,7 +583,9 @@ export class FirebaseService {
         await this.deleteUser(firebaseUid);
         console.log(`✅ Firebase user ${firebaseUid} deleted successfully.`);
       } else {
-        console.log(`🛑 Firebase user ${firebaseUid} is still in use by other roles. Skipping deletion.`);
+        console.log(
+          `🛑 Firebase user ${firebaseUid} is still in use by other roles. Skipping deletion.`,
+        );
       }
     } catch (error) {
       console.warn(`⚠️ Failed to check/delete Firebase user ${firebaseUid}:`, error);

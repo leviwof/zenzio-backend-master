@@ -1,5 +1,3 @@
-
-
 import {
   Injectable,
   NotFoundException,
@@ -104,10 +102,7 @@ export class RestaurantsService implements OnModuleInit {
 
     @InjectRepository(RestaurantMenu)
     private readonly menuRepo: Repository<RestaurantMenu>,
-  ) {
-
-
-  }
+  ) {}
 
   private normalizeRestaurantPhoto(photo: string): string {
     if (!photo || photo.startsWith('http://') || photo.startsWith('https://')) {
@@ -146,7 +141,6 @@ export class RestaurantsService implements OnModuleInit {
     try {
       const queryRunner = this.restaurantRepository.manager.connection.createQueryRunner();
 
-
       const columns = await queryRunner.query(`
         SELECT column_name 
         FROM information_schema.columns 
@@ -176,7 +170,6 @@ export class RestaurantsService implements OnModuleInit {
    */
   private async migrateDeliveryRadius() {
     try {
-
       const queryRunner = this.restaurantRepository.manager.connection.createQueryRunner();
       const hasColumn = await queryRunner.hasColumn('restaurants', 'deliveryRadius');
 
@@ -231,7 +224,6 @@ export class RestaurantsService implements OnModuleInit {
       throw new UnauthorizedException('Invalid contact');
     }
 
-
     const restaurant = await this.restaurantRepository.findOne({
       where: { uid: contact.restaurantUid },
     });
@@ -239,7 +231,6 @@ export class RestaurantsService implements OnModuleInit {
     if (!restaurant) {
       throw new UnauthorizedException('Restaurant not found');
     }
-
 
     if (!restaurant.isActive) {
       throw new UnauthorizedException('Restaurant has been blocked');
@@ -265,7 +256,6 @@ export class RestaurantsService implements OnModuleInit {
     });
 
     if (!userInDb) throw new UnauthorizedException('Restaurant not registered');
-
 
     const payloadJwt = {
       uid: userInDb.uid,
@@ -307,7 +297,7 @@ export class RestaurantsService implements OnModuleInit {
     const { email, password } = payload;
 
     type FirebaseLoginResponse = {
-      user?: { firebase_uid: string;[key: string]: any };
+      user?: { firebase_uid: string; [key: string]: any };
       [key: string]: any;
     };
 
@@ -333,11 +323,9 @@ export class RestaurantsService implements OnModuleInit {
       throw new UnauthorizedException('Restaurant not registered');
     }
 
-
     if (!userInDb.isActive) {
       throw new UnauthorizedException('Restaurant has been blocked');
     }
-
 
     const payloadJwt = {
       uid: userInDb.uid,
@@ -402,7 +390,14 @@ export class RestaurantsService implements OnModuleInit {
   async findByUidPublic(uid: string) {
     const user = await this.restaurantRepository.findOne({
       where: { uid },
-      relations: ['contact', 'bank_details', 'address', 'profile', 'documents', 'operational_hours'],
+      relations: [
+        'contact',
+        'bank_details',
+        'address',
+        'profile',
+        'documents',
+        'operational_hours',
+      ],
     });
 
     if (!user) {
@@ -470,11 +465,6 @@ export class RestaurantsService implements OnModuleInit {
     return user;
   }
 
-
-
-
-
-
   async remove(id: string): Promise<void> {
     const result = await this.restaurantRepository.delete(id);
     if (result.affected === 0) {
@@ -494,8 +484,6 @@ export class RestaurantsService implements OnModuleInit {
     return statusRestaurantByAdminUtil(this.restaurantRepository, restaurant_uid, body);
   }
 
-
-
   async updateProfile(restaurantUid: string, dto: UpdateRestaurantProfileDto) {
     console.log('🔧 updateProfile called for:', restaurantUid);
     console.log('🔧 DTO received:', JSON.stringify(dto));
@@ -508,9 +496,7 @@ export class RestaurantsService implements OnModuleInit {
       throw new NotFoundException('Restaurant profile not found');
     }
 
-
     const { deliveryRadius, ...profileFields } = dto;
-
 
     if (profileFields.photo && Array.isArray(profileFields.photo)) {
       const originalCount = profileFields.photo.length;
@@ -530,9 +516,7 @@ export class RestaurantsService implements OnModuleInit {
     Object.assign(profile, profileFields);
     await this.restaurantProfileRepository.save(profile);
 
-
     await this.cleanupAllProfiles();
-
 
     if (deliveryRadius !== undefined) {
       console.log('🔧 Updating deliveryRadius in Restaurant entity...');
@@ -555,11 +539,9 @@ export class RestaurantsService implements OnModuleInit {
     console.log('📅 Updating operational hours for:', restaurantUid);
     console.log('📅 Hours received:', JSON.stringify(hours));
 
-
     if (!hours || !Array.isArray(hours)) {
       throw new BadRequestException('operationalHours must be an array');
     }
-
 
     const restaurant = await this.restaurantRepository.findOne({
       where: { uid: restaurantUid },
@@ -569,9 +551,7 @@ export class RestaurantsService implements OnModuleInit {
       throw new NotFoundException('Restaurant not found');
     }
 
-
     await this.operationalHourRepository.delete({ restaurantUid });
-
 
     const newHours = hours.map((h) =>
       this.operationalHourRepository.create({
@@ -588,7 +568,6 @@ export class RestaurantsService implements OnModuleInit {
       operationalHours: newHours,
     };
   }
-
 
   async getProfile(restaurantUid: string) {
     const profile = await this.restaurantProfileRepository.findOne({
@@ -666,7 +645,6 @@ export class RestaurantsService implements OnModuleInit {
     return await this.restaurantBankDetailsRepository.save(record);
   }
 
-
   async getNearestActiveRestaurants(
     userLat: number,
     userLng: number,
@@ -681,20 +659,13 @@ export class RestaurantsService implements OnModuleInit {
     const sql = buildNearestActiveRestaurantsQuery(filter, sort, order, search);
     const skip = (page - 1) * limit;
 
-    const queryParams: any[] = [
-      userLat,
-      userLng,
-      radiusKm,
-      limit,
-      skip,
-    ];
+    const queryParams: any[] = [userLat, userLng, radiusKm, limit, skip];
 
     if (search && search.trim().length > 0) {
       queryParams.push(`%${search.toLowerCase()}%`);
     }
 
     const raw: any[] = await this.restaurantRepository.query(sql, queryParams);
-
 
     const total = raw.length > 0 ? Number(raw[0].total_count) : 0;
     console.log({ rawLength: raw.length, total });
@@ -731,7 +702,6 @@ export class RestaurantsService implements OnModuleInit {
         },
       };
     });
-
 
     return [items, total];
   }
@@ -904,7 +874,7 @@ export class RestaurantsService implements OnModuleInit {
         status: 'success',
         code: 200,
         message: 'Restaurant account has been permanently deleted',
-        data: { success: true }
+        data: { success: true },
       };
       console.log('📤 Sending deletion response:', response);
       return response;
@@ -933,7 +903,6 @@ export class RestaurantsService implements OnModuleInit {
     console.log(`📅 Input Dates -> Start: ${startDate}, End: ${endDate}`);
 
     if (startDate && endDate) {
-
       start = new Date(`${startDate}T00:00:00`);
       end = new Date(`${endDate}T23:59:59.999`);
     } else {
@@ -946,8 +915,6 @@ export class RestaurantsService implements OnModuleInit {
     }
     console.log(`🕒 Query Range -> Start: ${start.toISOString()}, End: ${end.toISOString()}`);
 
-
-
     const salesResult = await this.orderRepo
       .createQueryBuilder('order')
       .select('SUM(order.price)', 'total')
@@ -958,7 +925,6 @@ export class RestaurantsService implements OnModuleInit {
 
     const totalSales = parseFloat(salesResult?.total || '0');
 
-
     const totalOrders = await this.orderRepo.count({
       where: {
         restaurant_uid: uid,
@@ -966,8 +932,6 @@ export class RestaurantsService implements OnModuleInit {
         createdAt: Between(start, end),
       },
     });
-
-
 
     const bookings = await this.bookingRepo
       .createQueryBuilder('booking')
@@ -977,8 +941,6 @@ export class RestaurantsService implements OnModuleInit {
         end: endDate || end.toISOString().split('T')[0],
       })
       .getCount();
-
-
 
     const liveOffers = await this.offerRepo.count({
       where: {
@@ -1002,9 +964,6 @@ export class RestaurantsService implements OnModuleInit {
   }
 
   async resendVerificationEmail(email: string) {
-
-
-
     const link = await this.firebaseService.sendEmailVerification(
       email,
       process.env.EMAIL_VERIFICATION_REDIRECT_URL || 'https://restaurant-app-kd2m.onrender.com',
@@ -1017,4 +976,3 @@ export class RestaurantsService implements OnModuleInit {
     };
   }
 }
-

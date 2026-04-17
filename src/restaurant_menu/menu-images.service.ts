@@ -14,11 +14,8 @@ export class MFileService {
     private readonly s3Util: S3Util,
     @InjectRepository(RestaurantMenu)
     private readonly menuRepo: Repository<RestaurantMenu>,
-  ) { }
+  ) {}
 
-  
-  
-  
   async uploadMultipleMenuImages(
     files: MulterFile[],
     menu_uid: string,
@@ -27,7 +24,6 @@ export class MFileService {
       throw new BadRequestException('No files uploaded');
     }
 
-    
     files.forEach((file) => ImageUtils.validateImage(file, 5));
 
     const menu = await this.menuRepo.findOne({ where: { menu_uid } });
@@ -45,7 +41,6 @@ export class MFileService {
     );
 
     for (const file of files) {
-      
       const suffix = MenuImageUtils.getNextImageSuffix(existingImages);
 
       const ext = file.originalname.split('.').pop();
@@ -57,7 +52,6 @@ export class MFileService {
       console.log(`   ✅ Uploaded: ${imageName}`);
       console.log(`      🔗 URL: ${url}`);
 
-      
       existingImages.push(url);
 
       results.push({
@@ -68,7 +62,6 @@ export class MFileService {
       });
     }
 
-    
     await this.menuRepo.update({ menu_uid }, { images: existingImages });
 
     console.log(`   📊 Total images now: ${existingImages.length}\n`);
@@ -76,18 +69,14 @@ export class MFileService {
     return results;
   }
 
-  
-  
-  
   async uploadImagesForNewMenu(
     files: MulterFile[],
     prefix: string,
   ): Promise<MenuImageUploadResponse[]> {
     if (!files || files.length === 0) {
-      return []; 
+      return [];
     }
 
-    
     files.forEach((file) => ImageUtils.validateImage(file, 5));
 
     const bucket = process.env.AWS_BUCKET_NAME!;
@@ -111,7 +100,7 @@ export class MFileService {
       results.push({
         status: 'success',
         message: 'Menu image uploaded for new menu',
-        key: url, 
+        key: url,
         url,
       });
     }

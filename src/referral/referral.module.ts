@@ -9,13 +9,9 @@ import { Order } from 'src/orders/order.entity';
 import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([UserReferral, User, Order]),
-        CouponsModule,
-        AuthModule,
-    ],
-    controllers: [ReferralController],
-    providers: [ReferralService],
-    exports: [ReferralService],
+  imports: [TypeOrmModule.forFeature([UserReferral, User, Order]), CouponsModule, AuthModule],
+  controllers: [ReferralController],
+  providers: [ReferralService],
+  exports: [ReferralService],
 })
-export class ReferralModule { }
+export class ReferralModule {}

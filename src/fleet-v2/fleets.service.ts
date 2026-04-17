@@ -19,7 +19,6 @@ import { UtilService } from 'src/utils/util.service';
 
 import { signupWithEmail } from './utils/singupWithEmailFleet.utils';
 
-
 import { Fleet } from './entity/fleet.entity';
 import { FleetContact } from './entity/fleet_contact.entity';
 import { FleetAddress } from './entity/fleet_address.entity';
@@ -77,8 +76,7 @@ export class FleetsService {
     private readonly utilService: UtilService,
     private readonly mailService: MailService,
     private readonly notificationService: NotificationService,
-  ) { }
-
+  ) {}
 
   async create(createFleetDto: CreateFleetDto): Promise<Fleet> {
     const fleet = this.fleetRepository.create({
@@ -88,7 +86,6 @@ export class FleetsService {
 
     return await this.fleetRepository.save(fleet);
   }
-
 
   async signupWithEmail(registerUserDto: RegisterFleetDto) {
     return await signupWithEmail(registerUserDto, {
@@ -108,7 +105,6 @@ export class FleetsService {
       notificationService: this.notificationService,
     });
   }
-
 
   async loginwithOtp(payload: FleetLoginOtpDto) {
     const { phone, otp } = payload;
@@ -152,7 +148,6 @@ export class FleetsService {
       );
     }
 
-
     const payloadJwt = {
       uid: userInDb.uid,
       userId: userInDb.id,
@@ -188,13 +183,12 @@ export class FleetsService {
     };
   }
 
-
   async loginWithEmail(payload: FleetLoginEmailDto) {
     const userType = Roles.USER_FLEET;
     const { email, password } = payload;
 
     type FirebaseLoginResponse = {
-      user?: { firebase_uid: string;[key: string]: any };
+      user?: { firebase_uid: string; [key: string]: any };
     };
 
     const firebaseResponse = (await this.firebaseService.loginUser(
@@ -215,7 +209,6 @@ export class FleetsService {
     if (!userInDb) {
       throw new UnauthorizedException('Fleet not registered in app DB');
     }
-
 
     const payloadJwt = {
       uid: userInDb.uid,
@@ -270,11 +263,18 @@ export class FleetsService {
     return !!contact;
   }
 
-
   async findByUid(uid: string): Promise<Fleet> {
     const user = await this.fleetRepository.findOne({
       where: { uid },
-      relations: ['contact', 'bank_details', 'address', 'profile', 'profile.work_type', 'emergencyContacts', 'documents'],
+      relations: [
+        'contact',
+        'bank_details',
+        'address',
+        'profile',
+        'profile.work_type',
+        'emergencyContacts',
+        'documents',
+      ],
     });
 
     if (!user) {
@@ -298,18 +298,13 @@ export class FleetsService {
     return this.findOne(id);
   }
 
-
-
   async refreshAuthToken(@Query('refreshToken') refreshToken: string) {
-
     const decoded = this.jwtService.verifyRefreshToken(refreshToken);
-
 
     const session = await this.sessionService.findFleetSessionByRefreshToken(refreshToken);
     if (!session) {
       throw new UnauthorizedException('Session not found (invalid refresh token)');
     }
-
 
     const user = await this.fleetRepository.findOne({
       where: { id: session.fleetId },
@@ -324,7 +319,6 @@ export class FleetsService {
       );
     }
 
-
     const payloadJwt = {
       uid: user.uid,
       userId: user.id,
@@ -334,7 +328,6 @@ export class FleetsService {
 
     const accessToken = this.jwtService.generateAccessToken(payloadJwt);
     const newRefreshToken = await this.jwtService.generateRefreshToken(payloadJwt);
-
 
     await this.sessionService.deleteFleetSession(refreshToken);
     await this.sessionService.createFleetSession(user, newRefreshToken);
@@ -351,11 +344,9 @@ export class FleetsService {
     };
   }
 
-
   async findAll(): Promise<Fleet[]> {
     return await this.fleetRepository.find();
   }
-
 
   async findOne(id: number): Promise<Fleet> {
     const user = await this.fleetRepository.findOne({ where: { id } });
@@ -365,12 +356,10 @@ export class FleetsService {
     return user;
   }
 
-
   async update(id: number, updateUserDto: UpdateFleetDto): Promise<Fleet> {
     await this.fleetRepository.update(id, updateUserDto);
     return await this.findOne(id);
   }
-
 
   async remove(id: number): Promise<void> {
     const result = await this.fleetRepository.delete(id);
@@ -450,7 +439,7 @@ export class FleetsService {
     if (!bank) throw new NotFoundException('Fleet bank details not found');
 
     Object.assign(bank, dto);
-    
+
     // Automatically reset Razorpay safety flags if bank info changes
     bank.verified = false;
     bank.razorpay_accid = null as unknown as string;
@@ -508,7 +497,6 @@ export class FleetsService {
     return await fleetStatusByAdminUtil(this.fleetRepository, fleetUid, body);
   }
 
-
   async resetPasswordWithOtp(dto: ResetPasswordOtpDto) {
     const { phone, otp, newPassword } = dto;
 
@@ -521,13 +509,10 @@ export class FleetsService {
     if (new Date() > record.expiresAt) throw new BadRequestException('OTP expired');
     if (record.otp !== otp) throw new BadRequestException('Invalid OTP');
 
-
-
     if (!record.isVerified) {
       record.isVerified = true;
       await this.otpRepository.save(record);
     }
-
 
     const contact = await this.fleetContactRepository.findOne({
       where: { encryptedPhone: phone },
@@ -573,7 +558,6 @@ export class FleetsService {
     await queryRunner.startTransaction();
 
     try {
-
       await queryRunner.manager.delete('fleet_contacts', { fleetUid });
       await queryRunner.manager.delete('fleet_address', { fleetUid });
       await queryRunner.manager.delete('fleet_profile', { fleetUid });
@@ -584,10 +568,9 @@ export class FleetsService {
       await queryRunner.manager.delete('sessions', { fleetUid });
 
       // Delete tables with FK referencing fleets.uid
-      await queryRunner.manager.query(
-        `DELETE FROM delivery_history WHERE fleet_uid = $1`,
-        [fleetUid],
-      );
+      await queryRunner.manager.query(`DELETE FROM delivery_history WHERE fleet_uid = $1`, [
+        fleetUid,
+      ]);
       // await queryRunner.manager.query(
       //   `DELETE FROM shift_change_requests WHERE fleet_uid = $1`,
       //   [fleetUid],

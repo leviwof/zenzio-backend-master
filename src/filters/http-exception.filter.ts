@@ -21,16 +21,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       error:
         typeof exception === 'object' &&
-          exception !== null &&
-          'message' in exception &&
-          typeof (exception as { message?: unknown }).message === 'string'
+        exception !== null &&
+        'message' in exception &&
+        typeof (exception as { message?: unknown }).message === 'string'
           ? (exception as { message: string }).message
           : 'Internal server error',
       stack:
         typeof exception === 'object' &&
-          exception !== null &&
-          'stack' in exception &&
-          typeof (exception as { stack?: unknown }).stack === 'string'
+        exception !== null &&
+        'stack' in exception &&
+        typeof (exception as { stack?: unknown }).stack === 'string'
           ? (exception as { stack: string }).stack
           : null,
     };
@@ -65,19 +65,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
         // Get the actual message to show to the user
         const errorMessage = Array.isArray(message)
-          ? message.join(', ')  // If multiple errors, join them
-          : String(message);    // Single error message
+          ? message.join(', ') // If multiple errors, join them
+          : String(message); // Single error message
 
         // Send the error response with invalid fields
         return response.status(status).json({
           statusCode: status,
-          message: errorMessage || 'Validation failed',  // Show actual error message
+          message: errorMessage || 'Validation failed', // Show actual error message
           details, // Include invalid fields in the response
           error:
             typeof exception === 'object' &&
-              exception !== null &&
-              'name' in exception &&
-              typeof (exception as { name?: unknown }).name === 'string'
+            exception !== null &&
+            'name' in exception &&
+            typeof (exception as { name?: unknown }).name === 'string'
               ? (exception as { name: string }).name
               : 'BadRequestException',
         });
@@ -92,16 +92,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message:
         typeof exception === 'object' &&
-          exception !== null &&
-          'message' in exception &&
-          typeof (exception as { message?: unknown }).message === 'string'
+        exception !== null &&
+        'message' in exception &&
+        typeof (exception as { message?: unknown }).message === 'string'
           ? (exception as { message: string }).message
           : 'Internal server error',
       error:
         typeof exception === 'object' &&
-          exception !== null &&
-          'name' in exception &&
-          typeof (exception as { name?: unknown }).name === 'string'
+        exception !== null &&
+        'name' in exception &&
+        typeof (exception as { name?: unknown }).name === 'string'
           ? (exception as { name: string }).name
           : 'UnknownError',
     });

@@ -26,11 +26,12 @@ export class HealthService {
       this.checkRedis(),
     ]);
 
-    const overallStatus = databaseCheck.status === 'up'
-      ? redisCheck.status === 'up'
-        ? 'healthy'
-        : 'degraded'
-      : 'unhealthy';
+    const overallStatus =
+      databaseCheck.status === 'up'
+        ? redisCheck.status === 'up'
+          ? 'healthy'
+          : 'degraded'
+        : 'unhealthy';
 
     return {
       status: overallStatus,

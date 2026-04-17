@@ -15,21 +15,14 @@ export class AttendanceService {
     private readonly fleetRepo: Repository<Fleet>,
   ) {}
 
-  
-  
-  
-
-  
   private getISTDate(): Date {
     return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
   }
 
-  
   private getISTDateString(): string {
     return this.getISTDate().toISOString().split('T')[0];
   }
 
-  
   private formatIST(date: Date): string {
     const pad = (n: number) => n.toString().padStart(2, '0');
 
@@ -44,9 +37,6 @@ export class AttendanceService {
     return `${year}-${month}-${day}T${hour}:${min}:${sec}+05:30`;
   }
 
-  
-  
-  
   async punch(fleet_uid: string, dto: PunchDto) {
     const nowIST = this.getISTDate();
     const date = this.getISTDateString();
@@ -66,9 +56,6 @@ export class AttendanceService {
     const events = row.logs.events;
     const lastEvent = events[events.length - 1]?.type as AttendanceEventType | undefined;
 
-    
-    
-    
     switch (dto.event_type) {
       case AttendanceEventType.PUNCH_IN:
         if (lastEvent === AttendanceEventType.PUNCH_IN)
@@ -90,31 +77,39 @@ export class AttendanceService {
           const [startHour, startMin] = workType.start_time.split(':').map(Number);
           if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
             const formattedStart = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
-            throw new BadRequestException(`Cannot punch in before your assigned shift starts at ${formattedStart}.`);
+            throw new BadRequestException(
+              `Cannot punch in before your assigned shift starts at ${formattedStart}.`,
+            );
           }
 
           // Block punching in AFTER end_time
           if (workType.end_time) {
             const [endHour, endMin] = workType.end_time.split(':').map(Number);
-            
-            // Handle cross-midnight shifts (e.g. 18:00 to 02:00) 
+
+            // Handle cross-midnight shifts (e.g. 18:00 to 02:00)
             // If endHour is less than startHour, the shift goes over midnight.
             // A simple implementation here assumes standard same-day shifts.
             const isCrossMidnight = endHour < startHour;
-            
+
             if (!isCrossMidnight) {
               if (currentHour > endHour || (currentHour === endHour && currentMin > endMin)) {
                 const formattedEnd = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
-                throw new BadRequestException(`Cannot punch in after your assigned shift ends at ${formattedEnd}.`);
+                throw new BadRequestException(
+                  `Cannot punch in after your assigned shift ends at ${formattedEnd}.`,
+                );
               }
             } else {
               // For shifts that go past midnight (e.g. 10PM to 6AM)
               // If we are currently BEFORE the start time AND AFTER the end time
               // then we missed the window.
-              if ((currentHour < startHour || (currentHour === startHour && currentMin < startMin)) && 
-                  (currentHour > endHour || (currentHour === endHour && currentMin > endMin))) {
+              if (
+                (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) &&
+                (currentHour > endHour || (currentHour === endHour && currentMin > endMin))
+              ) {
                 const formattedEnd = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
-                throw new BadRequestException(`Cannot punch in outside your assigned shift. Shift ends at ${formattedEnd}.`);
+                throw new BadRequestException(
+                  `Cannot punch in outside your assigned shift. Shift ends at ${formattedEnd}.`,
+                );
               }
             }
           }
@@ -142,20 +137,14 @@ export class AttendanceService {
         break;
     }
 
-    
-    
-    
     const event: AttendanceEventLog = {
       type: dto.event_type,
-      time: this.formatIST(nowIST), 
+      time: this.formatIST(nowIST),
     };
 
     events.push(event);
     await this.attendanceRepo.save(row);
 
-    
-    
-    
     let isActive = false;
     if (
       dto.event_type === AttendanceEventType.PUNCH_IN ||
@@ -164,7 +153,7 @@ export class AttendanceService {
       isActive = true;
     } else {
       isActive = false;
-    } 
+    }
 
     await this.fleetRepo.update(
       { uid: fleet_uid },
@@ -177,9 +166,6 @@ export class AttendanceService {
     return row;
   }
 
-  
-  
-  
   async getDailyLogs(fleet_uid: string, date: string) {
     const row = await this.attendanceRepo.findOne({
       where: { fleet_uid, date },
@@ -189,9 +175,6 @@ export class AttendanceService {
     return row;
   }
 
-  
-  
-  
   async getMonthlyLogs(fleet_uid: string, year: number, month: number) {
     const start = `${year}-${String(month).padStart(2, '0')}-01`;
 
@@ -213,12 +196,6 @@ export class AttendanceService {
       .getMany();
   }
 
-  
-  
-  
-  
-  
-  
   private calculateDailyStats(events: any[], targetDate: string) {
     let workMs = 0;
     let breakMs = 0;
@@ -263,12 +240,8 @@ export class AttendanceService {
       }
     }
 
-    
     const today = this.getISTDateString();
     if (targetDate === today) {
-      
-      
-      
       const nowMs = new Date().getTime();
       if (lastPunchIn) {
         workMs += nowMs - new Date(lastPunchIn).getTime();
@@ -281,16 +254,11 @@ export class AttendanceService {
     return { workMs, breakMs };
   }
 
-  
-  
-  
   async getDailySummary(fleet_uid: string, date: string) {
     const row = await this.attendanceRepo.findOne({
       where: { fleet_uid, date },
     });
 
-    
-    
     if (!row) throw new BadRequestException('No attendance found.');
 
     const events = row.logs.events;
@@ -314,8 +282,6 @@ export class AttendanceService {
     };
   }
 
-  
-  
   async getRangeSummary(fleet_uid: string, startDate: string, endDate: string) {
     console.log(`[RangeSummary] Querying fleet_uid=${fleet_uid}, range=${startDate} to ${endDate}`);
     const rows = await this.attendanceRepo
@@ -354,9 +320,6 @@ export class AttendanceService {
     };
   }
 
-  
-  
-  
   async getHourlySummary(fleet_uid: string, date: string) {
     const row = await this.attendanceRepo.findOne({
       where: { fleet_uid, date },
@@ -404,7 +367,6 @@ export class AttendanceService {
       });
     }
 
-    
     for (const interval of intervals) {
       const sHour = interval.start.getHours();
       const eHour = interval.end.getHours();

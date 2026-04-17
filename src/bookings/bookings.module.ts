@@ -12,9 +12,13 @@ import { Restaurant } from '../restaurants/entity/restaurant.entity';
 import { Event } from '../events/entities/event.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Booking, DiningSpace, Restaurant, Event]), S3Module, AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Booking, DiningSpace, Restaurant, Event]),
+    S3Module,
+    AuthModule,
+  ],
   controllers: [BookingsController, DiningSpaceController],
   providers: [BookingsService, DiningSpaceService],
   exports: [BookingsService, DiningSpaceService],
 })
-export class BookingsModule { }
+export class BookingsModule {}

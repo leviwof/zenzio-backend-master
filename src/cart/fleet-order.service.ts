@@ -26,7 +26,7 @@ export class FleetOrderService {
     @InjectRepository(DeliveryLocation)
     private readonly deliveryLocationRepo: Repository<DeliveryLocation>,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   // ==========================================================
   // AVAILABLE ORDERS (NEARBY)
@@ -194,9 +194,9 @@ export class FleetOrderService {
     const restaurants =
       restaurantUids.length > 0
         ? await this.restaurantRepo.find({
-          where: { uid: In(restaurantUids) },
-          relations: ['contact', 'address', 'profile'],
-        })
+            where: { uid: In(restaurantUids) },
+            relations: ['contact', 'address', 'profile'],
+          })
         : [];
 
     // 5. Create a map for quick lookup
@@ -208,31 +208,31 @@ export class FleetOrderService {
         isActive_flag: r.isActive_flag,
         profile: r.profile
           ? {
-            restaurant_name: r.profile.restaurant_name || null,
-            contact_person: r.profile.contact_person || null,
-            contact_number: r.profile.contact_number || null,
-            contact_email: r.profile.contact_email || null,
-            avg_cost_for_two: r.profile.avg_cost_for_two || null,
-            photo: r.profile.photo || [],
-          }
+              restaurant_name: r.profile.restaurant_name || null,
+              contact_person: r.profile.contact_person || null,
+              contact_number: r.profile.contact_number || null,
+              contact_email: r.profile.contact_email || null,
+              avg_cost_for_two: r.profile.avg_cost_for_two || null,
+              photo: r.profile.photo || [],
+            }
           : null,
         address: r.address
           ? {
-            city: r.address.city || null,
-            state: r.address.state || null,
-            pincode: r.address.pincode || null,
-            address: r.address.address || null,
-            lat: r.address.lat ? Number(r.address.lat) : null,
-            lng: r.address.lng ? Number(r.address.lng) : null,
-            land_mark: r.address.land_mark || null,
-            verified: r.address.verified || false,
-          }
+              city: r.address.city || null,
+              state: r.address.state || null,
+              pincode: r.address.pincode || null,
+              address: r.address.address || null,
+              lat: r.address.lat ? Number(r.address.lat) : null,
+              lng: r.address.lng ? Number(r.address.lng) : null,
+              land_mark: r.address.land_mark || null,
+              verified: r.address.verified || false,
+            }
           : null,
         contact: r.contact
           ? {
-            email: r.contact.encryptedEmail || null,
-            phone: r.contact.encryptedPhone || null,
-          }
+              email: r.contact.encryptedEmail || null,
+              phone: r.contact.encryptedPhone || null,
+            }
           : null,
       });
     });
@@ -244,9 +244,9 @@ export class FleetOrderService {
     const customers =
       customerUids.length > 0
         ? await this.userRepo.find({
-          where: { uid: In(customerUids) },
-          relations: ['profile', 'contact', 'address'],
-        })
+            where: { uid: In(customerUids) },
+            relations: ['profile', 'contact', 'address'],
+          })
         : [];
 
     // 8. Create customer map
@@ -256,24 +256,24 @@ export class FleetOrderService {
         uid: c.uid,
         profile: c.profile
           ? {
-            first_name: c.profile.first_name || null,
-            last_name: c.profile.last_name || null,
-            photo: c.profile.photo || [],
-          }
+              first_name: c.profile.first_name || null,
+              last_name: c.profile.last_name || null,
+              photo: c.profile.photo || [],
+            }
           : null,
         contact: c.contact
           ? {
-            phone: c.contact.encryptedPhone || null,
-            email: c.contact.encryptedEmail || null,
-          }
+              phone: c.contact.encryptedPhone || null,
+              email: c.contact.encryptedEmail || null,
+            }
           : null,
         address: c.address
           ? {
-            address: c.address.address || null,
-            city: c.address.city || null,
-            state: c.address.state || null,
-            pincode: c.address.pincode || null,
-          }
+              address: c.address.address || null,
+              city: c.address.city || null,
+              state: c.address.state || null,
+              pincode: c.address.pincode || null,
+            }
           : null,
       });
     });
@@ -282,8 +282,8 @@ export class FleetOrderService {
     const deliveryLocations =
       customerUids.length > 0
         ? await this.deliveryLocationRepo.find({
-          where: { user_uid: In(customerUids), is_default: true },
-        })
+            where: { user_uid: In(customerUids), is_default: true },
+          })
         : [];
 
     // 10. Create delivery location map
@@ -386,31 +386,31 @@ export class FleetOrderService {
           isActive_flag: restaurant.isActive_flag,
           profile: restaurant.profile
             ? {
-              restaurant_name: restaurant.profile.restaurant_name || null,
-              contact_person: restaurant.profile.contact_person || null,
-              contact_number: restaurant.profile.contact_number || null,
-              contact_email: restaurant.profile.contact_email || null,
-              avg_cost_for_two: restaurant.profile.avg_cost_for_two || null,
-              photo: restaurant.profile.photo || [],
-            }
+                restaurant_name: restaurant.profile.restaurant_name || null,
+                contact_person: restaurant.profile.contact_person || null,
+                contact_number: restaurant.profile.contact_number || null,
+                contact_email: restaurant.profile.contact_email || null,
+                avg_cost_for_two: restaurant.profile.avg_cost_for_two || null,
+                photo: restaurant.profile.photo || [],
+              }
             : null,
           address: restaurant.address
             ? {
-              city: restaurant.address.city || null,
-              state: restaurant.address.state || null,
-              pincode: restaurant.address.pincode || null,
-              address: restaurant.address.address || null,
-              lat: restaurant.address.lat ? Number(restaurant.address.lat) : null,
-              lng: restaurant.address.lng ? Number(restaurant.address.lng) : null,
-              land_mark: restaurant.address.land_mark || null,
-              verified: restaurant.address.verified || false,
-            }
+                city: restaurant.address.city || null,
+                state: restaurant.address.state || null,
+                pincode: restaurant.address.pincode || null,
+                address: restaurant.address.address || null,
+                lat: restaurant.address.lat ? Number(restaurant.address.lat) : null,
+                lng: restaurant.address.lng ? Number(restaurant.address.lng) : null,
+                land_mark: restaurant.address.land_mark || null,
+                verified: restaurant.address.verified || false,
+              }
             : null,
           contact: restaurant.contact
             ? {
-              email: restaurant.contact.encryptedEmail || null,
-              phone: restaurant.contact.encryptedPhone || null,
-            }
+                email: restaurant.contact.encryptedEmail || null,
+                phone: restaurant.contact.encryptedPhone || null,
+              }
             : null,
         };
       }
@@ -447,24 +447,24 @@ export class FleetOrderService {
             uid: customer.uid,
             profile: customer.profile
               ? {
-                first_name: customer.profile.first_name || null,
-                last_name: customer.profile.last_name || null,
-                photo: customer.profile.photo || [],
-              }
+                  first_name: customer.profile.first_name || null,
+                  last_name: customer.profile.last_name || null,
+                  photo: customer.profile.photo || [],
+                }
               : null,
             contact: customer.contact
               ? {
-                phone: customer.contact.encryptedPhone || null,
-                email: customer.contact.encryptedEmail || null,
-              }
+                  phone: customer.contact.encryptedPhone || null,
+                  email: customer.contact.encryptedEmail || null,
+                }
               : null,
             address: customer.address
               ? {
-                address: customer.address.address || null,
-                city: customer.address.city || null,
-                state: customer.address.state || null,
-                pincode: customer.address.pincode || null,
-              }
+                  address: customer.address.address || null,
+                  city: customer.address.city || null,
+                  state: customer.address.state || null,
+                  pincode: customer.address.pincode || null,
+                }
               : null,
           };
         })(),

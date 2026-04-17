@@ -80,4 +80,4 @@ import { ShiftChangeRequestController } from './shift-change-request.controller'
   ],
   exports: [FleetsService], // If needed in other modules
 })
-export class FleetsModule { }
+export class FleetsModule {}

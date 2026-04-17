@@ -48,7 +48,7 @@ export class UsersController {
     private readonly fileService: UFileService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-  ) { }
+  ) {}
 
   @Get()
   async getUsersWithAllDetails(

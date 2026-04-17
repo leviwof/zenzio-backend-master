@@ -17,7 +17,7 @@ import {
 @ApiTags('Rating')
 @Controller('rating')
 export class RatingController {
-  constructor(private readonly ratingService: RatingService) { }
+  constructor(private readonly ratingService: RatingService) {}
 
   // General
   @Get()

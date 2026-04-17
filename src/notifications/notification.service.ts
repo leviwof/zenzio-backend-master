@@ -14,7 +14,6 @@ export interface NotificationPayload {
   imageUrl?: string;
 }
 
-
 const FIREBASE_APP_CUSTOMER = 'customer-app';
 const FIREBASE_APP_RESTAURANT = 'restaurant-app';
 const FIREBASE_APP_DELIVERY = 'delivery-app';
@@ -34,14 +33,13 @@ export class NotificationService implements OnModuleInit {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
-  ) { }
+  ) {}
 
   onModuleInit() {
     this.initializeFirebaseApps();
   }
 
   private initializeFirebaseApps() {
-    
     const customerConfigPath = join(process.cwd(), 'src', 'config', 'firebase-adminsdk.json');
     if (existsSync(customerConfigPath)) {
       try {
@@ -60,7 +58,6 @@ export class NotificationService implements OnModuleInit {
       }
     }
 
-    
     const restaurantConfigPath = join(
       process.cwd(),
       'src',
@@ -84,7 +81,6 @@ export class NotificationService implements OnModuleInit {
       }
     }
 
-    
     const deliveryConfigPath = join(
       process.cwd(),
       'src',
@@ -108,13 +104,11 @@ export class NotificationService implements OnModuleInit {
       }
     }
 
-    
     if (!this.customerApp && !this.restaurantApp && !this.deliveryApp) {
       console.warn('⚠️ No Firebase apps initialized. Push notifications will not work.');
     }
   }
 
-  
   private getMessagingForUserType(userType: UserType): admin.messaging.Messaging | null {
     switch (userType) {
       case UserType.RESTAURANT:
@@ -130,9 +124,6 @@ export class NotificationService implements OnModuleInit {
     }
   }
 
-  
-  
-  
   async registerToken(
     userType: UserType,
     userId: string,
@@ -140,24 +131,20 @@ export class NotificationService implements OnModuleInit {
     deviceId?: string,
     platform = 'android',
   ): Promise<FcmToken> {
-    
-    let existingToken = await this.fcmTokenRepo.findOne({
+    const existingToken = await this.fcmTokenRepo.findOne({
       where: { userType, userId, token },
     });
 
     if (existingToken) {
-      
       existingToken.isActive = true;
       existingToken.updatedAt = new Date();
       return this.fcmTokenRepo.save(existingToken);
     }
 
-    
     if (deviceId) {
       await this.fcmTokenRepo.update({ userType, userId, deviceId }, { isActive: false });
     }
 
-    
     const fcmToken = this.fcmTokenRepo.create({
       userType,
       userId,
@@ -171,23 +158,16 @@ export class NotificationService implements OnModuleInit {
     return this.fcmTokenRepo.save(fcmToken);
   }
 
-  
-  
-  
   async removeToken(token: string): Promise<void> {
     await this.fcmTokenRepo.update({ token }, { isActive: false });
     console.log(`\n📱 [FCM] Token deactivated: ${token.substring(0, 20)}...`);
   }
 
-  
-  
-  
   async sendToUser(
     userType: UserType,
     userId: string,
     payload: NotificationPayload,
   ): Promise<{ success: boolean; sent: number; failed: number }> {
-    
     try {
       await this.notificationRepo.save({
         userType,
@@ -200,7 +180,6 @@ export class NotificationService implements OnModuleInit {
       console.error('❌ Failed to save notification to DB:', e);
     }
 
-    
     if (userType === UserType.USER) {
       const user = await this.userRepo.findOne({ where: { uid: userId } });
       if (user && user.notificationsEnabled === false) {
@@ -218,7 +197,6 @@ export class NotificationService implements OnModuleInit {
       return { success: false, sent: 0, failed: 0 };
     }
 
-    
     const channelId = this.getChannelIdForUserType(userType);
 
     return this.sendToTokens(
@@ -229,9 +207,6 @@ export class NotificationService implements OnModuleInit {
     );
   }
 
-  
-  
-  
   async sendToUsers(
     userType: UserType,
     userIds: string[],
@@ -239,14 +214,12 @@ export class NotificationService implements OnModuleInit {
   ): Promise<{ success: boolean; sent: number; failed: number }> {
     let targetUserIds = userIds;
 
-    
     if (userType === UserType.USER) {
       const users = await this.userRepo.find({
         where: { uid: In(userIds) },
         select: ['uid', 'notificationsEnabled'],
       });
 
-      
       targetUserIds = users.filter((u) => u.notificationsEnabled !== false).map((u) => u.uid);
 
       if (targetUserIds.length < userIds.length) {
@@ -279,18 +252,14 @@ export class NotificationService implements OnModuleInit {
     );
   }
 
-  
-  
-  
   async sendToAllOfType(
     userType: UserType,
     payload: NotificationPayload,
   ): Promise<{ success: boolean; sent: number; failed: number }> {
-    
     try {
       await this.notificationRepo.save({
         userType,
-        userId: 'ALL', 
+        userId: 'ALL',
         title: payload.title,
         body: payload.body,
         data: payload.data,
@@ -318,13 +287,10 @@ export class NotificationService implements OnModuleInit {
     );
   }
 
-  
-  
-  
   private getChannelIdForUserType(userType: UserType): string {
     switch (userType) {
       case UserType.RESTAURANT:
-        return 'zenzio_restaurant_orders_ringtone_v4'; 
+        return 'zenzio_restaurant_orders_ringtone_v4';
       case UserType.DELIVERY_PARTNER:
         return 'zenzio_delivery_ringtone';
       case UserType.USER:
@@ -336,9 +302,6 @@ export class NotificationService implements OnModuleInit {
     }
   }
 
-  
-  
-  
   private async sendToTokens(
     tokens: string[],
     payload: NotificationPayload,
@@ -349,7 +312,6 @@ export class NotificationService implements OnModuleInit {
       return { success: false, sent: 0, failed: 0 };
     }
 
-    
     const messaging = this.getMessagingForUserType(userType);
     if (!messaging) {
       console.error(`❌ [FCM] No messaging instance available for ${userType}`);
@@ -392,7 +354,6 @@ export class NotificationService implements OnModuleInit {
       console.log(`   ✅ Success: ${response.successCount}`);
       console.log(`   ❌ Failed: ${response.failureCount}`);
 
-      
       if (response.failureCount > 0) {
         const failedTokens: string[] = [];
         response.responses.forEach((resp, idx) => {
@@ -402,7 +363,6 @@ export class NotificationService implements OnModuleInit {
           }
         });
 
-        
         if (failedTokens.length > 0) {
           await this.fcmTokenRepo.update({ token: In(failedTokens) }, { isActive: false });
         }
@@ -419,11 +379,6 @@ export class NotificationService implements OnModuleInit {
     }
   }
 
-  
-  
-  
-
-  
   async notifyOrderConfirmed(userId: string, orderId: string): Promise<void> {
     await this.sendToUser(UserType.USER, userId, {
       title: '🎉 Order Confirmed!',
@@ -436,7 +391,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyRestaurantNewOrder(
     restaurantId: string,
     orderId: string,
@@ -454,7 +408,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyOrderAccepted(
     userId: string,
     orderId: string,
@@ -471,7 +424,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyDeliveryPartnersNewJob(
     orderId: string,
     restaurantName: string,
@@ -490,7 +442,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyDeliveryAssigned(
     userId: string,
     orderId: string,
@@ -508,7 +459,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyRestaurantDeliveryAssigned(
     restaurantId: string,
     orderId: string,
@@ -526,7 +476,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyOrderOutForDelivery(userId: string, orderId: string): Promise<void> {
     await this.sendToUser(UserType.USER, userId, {
       title: '🚀 Order Out for Delivery!',
@@ -539,7 +488,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyOrderDelivered(userId: string, orderId: string): Promise<void> {
     await this.sendToUser(UserType.USER, userId, {
       title: '✅ Order Delivered!',
@@ -552,9 +500,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
-  
-  
   async getUserNotifications(userType: UserType, userId: string): Promise<Notification[]> {
     let accountCreatedAt = new Date(0); // Default to epoch
 
@@ -564,42 +509,43 @@ export class NotificationService implements OnModuleInit {
         const user = await this.userRepo.findOne({ where: { uid: userId }, select: ['createdAt'] });
         if (user) accountCreatedAt = user.createdAt;
       } else if (userType === UserType.DELIVERY_PARTNER) {
-        const result = await this.notificationRepo.manager.query(`SELECT "createdAt" FROM fleets WHERE "uid" = $1 LIMIT 1`, [userId]);
+        const result = await this.notificationRepo.manager.query(
+          `SELECT "createdAt" FROM fleets WHERE "uid" = $1 LIMIT 1`,
+          [userId],
+        );
         if (result && result.length > 0) accountCreatedAt = result[0].createdAt;
       } else if (userType === UserType.RESTAURANT) {
-        const result = await this.notificationRepo.manager.query(`SELECT "createdAt" FROM restaurants WHERE "uid" = $1 LIMIT 1`, [userId]);
+        const result = await this.notificationRepo.manager.query(
+          `SELECT "createdAt" FROM restaurants WHERE "uid" = $1 LIMIT 1`,
+          [userId],
+        );
         if (result && result.length > 0) accountCreatedAt = result[0].createdAt;
       }
     } catch (e) {
-      console.warn(`[Notifications] Could not fetch account creation date for ${userType} ${userId}`, e);
+      console.warn(
+        `[Notifications] Could not fetch account creation date for ${userType} ${userId}`,
+        e,
+      );
     }
 
     return this.notificationRepo.find({
       where: [
         { userId, userType }, // Specific notifications for this user
-        { 
-          userId: 'ALL', 
+        {
+          userId: 'ALL',
           userType,
-          createdAt: MoreThanOrEqual(accountCreatedAt) // Only broadcasts sent AFTER they joined
-        }, 
+          createdAt: MoreThanOrEqual(accountCreatedAt), // Only broadcasts sent AFTER they joined
+        },
       ],
       order: { createdAt: 'DESC' },
-      take: 50, 
+      take: 50,
     });
   }
 
-  
-  
-  
   async markAsRead(notificationId: string): Promise<void> {
     await this.notificationRepo.update(notificationId, { isRead: true });
   }
 
-  
-  
-  
-
-  
   async notifyUserDeliveryCancelledByAdmin(
     userId: string,
     orderId: string,
@@ -619,7 +565,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyRestaurantDeliveryCancelledByAdmin(
     restaurantId: string,
     orderId: string,
@@ -637,7 +582,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyDeliveryPartnerCancelledByAdmin(
     partnerId: string,
     orderId: string,
@@ -655,7 +599,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyDeliveryPartnerStatusChangedByAdmin(
     partnerId: string,
     orderId: string,
@@ -673,7 +616,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyDeliveryPartnerAssignedJob(
     partnerId: string,
     orderId: string,
@@ -693,17 +635,10 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
-  
-  
-
-  
   async notifyAdmin(payload: NotificationPayload): Promise<void> {
-    
     await this.sendToAllOfType(UserType.ADMIN, payload);
   }
 
-  
   async notifyNewRestaurantRegistered(restaurantName: string, email: string): Promise<void> {
     await this.notifyAdmin({
       title: '🏪 New Restaurant Registered',
@@ -716,7 +651,6 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
   async notifyNewPartnerRegistered(partnerName: string, email: string): Promise<void> {
     await this.notifyAdmin({
       title: '🛵 New Delivery Partner Registered',

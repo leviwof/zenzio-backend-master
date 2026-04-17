@@ -61,7 +61,7 @@ export class FleetsController {
     @InjectRepository(Fleet)
     private readonly fleetRepository: Repository<Fleet>,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   @Get()
   async getAllFleets(

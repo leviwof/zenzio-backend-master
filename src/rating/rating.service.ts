@@ -32,7 +32,7 @@ export class RatingService {
     @InjectRepository(Fleet)
     private readonly fleetRepo: Repository<Fleet>,
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   // Helper: get or create by group_id
   private async getOrCreateByGroup(group_id: string): Promise<Rating> {
@@ -132,16 +132,16 @@ export class RatingService {
 
     try {
       if (dto.restaurantRating === undefined || dto.restaurantRating === null) {
-        throw new Error("Restaurant rating is missing");
+        throw new Error('Restaurant rating is missing');
       }
       // Force conversion to number in case it comes as string
       const finalRestRating = Number(dto.restaurantRating);
 
       // 1. Validate Order
-      // Use queryRunner manager to ensure consistency if we were locking, but simple read is fine here 
+      // Use queryRunner manager to ensure consistency if we were locking, but simple read is fine here
       // primarily we want the write locks later.
       const order = await queryRunner.manager.findOne(Order, {
-        where: { orderId: dto.orderId }
+        where: { orderId: dto.orderId },
       });
 
       if (!order) {
@@ -153,10 +153,14 @@ export class RatingService {
       const deliveryStatus = order.deliveryPartnerStatus?.toLowerCase();
 
       if (status !== 'completed' && deliveryStatus !== 'delivered') {
-        throw new NotFoundException(`Order must be delivered before rating. Status: ${status}, Delivery: ${deliveryStatus}`);
+        throw new NotFoundException(
+          `Order must be delivered before rating. Status: ${status}, Delivery: ${deliveryStatus}`,
+        );
       }
 
-      console.log(`[Rating] Order validated: ${order.orderId}, Rest: ${order.restaurant_uid}, Driver: ${order.delivery_partner_uid}`);
+      console.log(
+        `[Rating] Order validated: ${order.orderId}, Rest: ${order.restaurant_uid}, Driver: ${order.delivery_partner_uid}`,
+      );
 
       // 2. Check if already rated
       const existingRating = await queryRunner.manager.findOne(Rating, {
@@ -182,7 +186,7 @@ export class RatingService {
         // If driver rating was previously set, subtract it. If it was 0/null, subtract 0.
         // If new driver rating is provided, use it.
         const oldDriverRating = existingRating.cust_fleet || 0;
-        const newDriverRating = (dto.driverRating && !isNaN(dto.driverRating)) ? dto.driverRating : 0;
+        const newDriverRating = dto.driverRating && !isNaN(dto.driverRating) ? dto.driverRating : 0;
         diffDriverRating = newDriverRating - oldDriverRating;
 
         isUpdate = true;
@@ -208,11 +212,21 @@ export class RatingService {
       // 4. Update Restaurant Aggregation
       if (order.restaurant_uid) {
         // Update sum by difference
-        await queryRunner.manager.increment(Restaurant, { uid: order.restaurant_uid }, 'rating_sum', diffRestaurantRating);
+        await queryRunner.manager.increment(
+          Restaurant,
+          { uid: order.restaurant_uid },
+          'rating_sum',
+          diffRestaurantRating,
+        );
 
         // Only increment count if it's a NEW rating
         if (!isUpdate) {
-          await queryRunner.manager.increment(Restaurant, { uid: order.restaurant_uid }, 'rating_count', 1);
+          await queryRunner.manager.increment(
+            Restaurant,
+            { uid: order.restaurant_uid },
+            'rating_count',
+            1,
+          );
         }
 
         // Recalculate Average
@@ -225,7 +239,9 @@ export class RatingService {
           END
           WHERE uid = '${order.restaurant_uid}'
         `);
-        console.log(`[Rating] Restaurant ${order.restaurant_uid} updated. Diff: ${diffRestaurantRating}`);
+        console.log(
+          `[Rating] Restaurant ${order.restaurant_uid} updated. Diff: ${diffRestaurantRating}`,
+        );
       }
 
       // 5. Update Delivery Partner Aggregation
@@ -234,9 +250,9 @@ export class RatingService {
         // A) It's a new rating and driverRating is provided (>0)
         // B) It's an update. Even if new rating is 0, we might need to "remove" the old rating score.
         //    (Assuming 0 means "no rating" or "bad rating"? Usually 0 means not rated in this logic if strictly optional)
-        //    However, if the user explicitly sends 0, it might skew avg if we count it. 
-        //    Let's assume standard logic: 
-        //    - If isUpdate: modify sum by diff. 
+        //    However, if the user explicitly sends 0, it might skew avg if we count it.
+        //    Let's assume standard logic:
+        //    - If isUpdate: modify sum by diff.
         //    - If !isUpdate: modify sum by value, count by 1 (if value > 0). NOTE: if value is 0 on creation, we shouldn't count it?
         //    The original code incremented count regardless of value? No, original had `if (typeof dto.driverRating === 'number')` check but inside likely incremented.
 
@@ -248,14 +264,24 @@ export class RatingService {
 
         // Update Sum
         if (diffDriverRating !== 0) {
-          await queryRunner.manager.increment(Fleet, { uid: order.delivery_partner_uid }, 'rating_sum', diffDriverRating);
+          await queryRunner.manager.increment(
+            Fleet,
+            { uid: order.delivery_partner_uid },
+            'rating_sum',
+            diffDriverRating,
+          );
         }
 
         // Update Count (Only for new ratings that are actual ratings)
-        // If previous code allowed 0 rating to count, we stick to that. 
+        // If previous code allowed 0 rating to count, we stick to that.
         // Original code: `if (... && typeof dto.driverRating === 'number') { increment count }`. So even 0 counted.
         if (!isUpdate && typeof dto.driverRating === 'number') {
-          await queryRunner.manager.increment(Fleet, { uid: order.delivery_partner_uid }, 'rating_count', 1);
+          await queryRunner.manager.increment(
+            Fleet,
+            { uid: order.delivery_partner_uid },
+            'rating_count',
+            1,
+          );
         }
 
         // Recalculate Average
@@ -267,13 +293,14 @@ export class RatingService {
           END
           WHERE uid = '${order.delivery_partner_uid}'
         `);
-        console.log(`[Rating] Driver ${order.delivery_partner_uid} aggregation updated. Diff: ${diffDriverRating}`);
+        console.log(
+          `[Rating] Driver ${order.delivery_partner_uid} aggregation updated. Diff: ${diffDriverRating}`,
+        );
       }
 
       await queryRunner.commitTransaction();
 
       return { message: 'Rating submitted successfully', rating: ratingEntity };
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
