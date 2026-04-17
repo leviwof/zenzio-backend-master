@@ -64,11 +64,15 @@ export class OrdersController {
   }
 
   // MONITORING STATS
-  // MONITORING STATS
   @Get('monitoring-stats')
   async getMonitoringStats() {
-    // Public access for monitoring stats
     return this.ordersService.getOrderMonitoringStats('', '');
+  }
+
+  // ORDER STATS - For admin dashboard
+  @Get('stats')
+  async getOrderStats() {
+    return this.ordersService.getOrderStats();
   }
 
   // GET /orders - Get all orders for logged-in user

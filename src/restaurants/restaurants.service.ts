@@ -1004,7 +1004,6 @@ export class RestaurantsService implements OnModuleInit {
   async resendVerificationEmail(email: string) {
 
 
-
     const link = await this.firebaseService.sendEmailVerification(
       email,
       process.env.EMAIL_VERIFICATION_REDIRECT_URL || 'https://restaurant-app-kd2m.onrender.com',
@@ -1014,6 +1013,26 @@ export class RestaurantsService implements OnModuleInit {
       success: true,
       message: 'Verification email sent successfully',
       link,
+    };
+  }
+
+  async getCuisineTypes() {
+    const cuisines = await this.restaurantRepository
+      .createQueryBuilder('restaurant')
+      .leftJoinAndSelect('restaurant.profile', 'profile')
+      .where('profile.cuisine_type IS NOT NULL')
+      .select('DISTINCT profile.cuisine_type', 'cuisine')
+      .getRawMany();
+
+    const uniqueCuisines = cuisines
+      .map((c) => c.cuisine)
+      .filter((cuisine): cuisine is string => cuisine !== null && cuisine !== undefined);
+
+    return {
+      status: 'success',
+      code: 200,
+      data: uniqueCuisines.map((cuisine, index) => ({ id: index + 1, name: cuisine })),
+      meta: { timestamp: new Date().toISOString() },
     };
   }
 }

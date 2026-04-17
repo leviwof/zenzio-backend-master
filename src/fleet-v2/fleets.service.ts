@@ -612,4 +612,24 @@ export class FleetsService {
       await queryRunner.release();
     }
   }
+
+  async getVehicleTypes() {
+    const vehicleTypes = await this.fleetRepository
+      .createQueryBuilder('fleet')
+      .leftJoin('fleet.documents', 'doc')
+      .select('DISTINCT doc.vehicle_type', 'vehicleType')
+      .where('doc.vehicle_type IS NOT NULL')
+      .getRawMany();
+
+    const uniqueTypes = vehicleTypes
+      .map((v) => v.vehicleType)
+      .filter((type): type is string => type !== null && type !== undefined);
+
+    return {
+      status: 'success',
+      code: 200,
+      data: uniqueTypes.map((type, index) => ({ id: index + 1, name: type })),
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
 }

@@ -2285,6 +2285,46 @@ export class OrdersService implements OnModuleInit {
     };
   }
 
+  async getOrderStats() {
+    const totalOrders = await this.orderRepo.count();
+    const pendingOrders = await this.orderRepo
+      .createQueryBuilder('order')
+      .where('order.restaurantStatus IN (:...pending)', {
+        pending: ['new', 'pending', 'payment_pending', 'PAYMENT_PENDING', 'PENDING_PAYMENT', 'C008', 'C007', 'payment_initiated', 'PAYMENT_INITIATED'],
+      })
+      .getCount();
+    const completedOrders = await this.orderRepo
+      .createQueryBuilder('order')
+      .where('order.deliveryPartnerStatus = :status', { status: 'delivered' })
+      .getCount();
+    const cancelledOrders = await this.orderRepo
+      .createQueryBuilder('order')
+      .where('order.restaurantStatus IN (:...status)', {
+        status: ['rejected', 'cancelled', 'CANCELLED'],
+      })
+      .getCount();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayOrders = await this.orderRepo
+      .createQueryBuilder('order')
+      .where('order.createdAt >= :today', { today })
+      .getCount();
+
+    return {
+      status: 'success',
+      code: 200,
+      data: {
+        total: totalOrders,
+        pending: pendingOrders,
+        completed: completedOrders,
+        cancelled: cancelledOrders,
+        today: todayOrders,
+      },
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
 
   async getOrderMonitoringStats(userUid: string, role: string) {
     const stats = {

@@ -12,6 +12,7 @@ import {
   BadRequestException,
   UseGuards,
   Req,
+  Res,
   ParseIntPipe,
   Patch,
 
@@ -19,6 +20,7 @@ import {
   UploadedFiles,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -326,6 +328,21 @@ export class Restaurant_menuController {
         total: categories.length,
       },
     };
+  }
+
+  @Get('download-template')
+  @ApiOperation({ summary: 'Download menu bulk upload template' })
+  @ApiResponse({ status: 200, description: 'Template file downloaded' })
+  async downloadTemplate(@Res() res: Response) {
+    const template = `menu_name,price,discount,description,category,food_type,cuisine_type,isActive
+Pizza,299,10,Pepperoni pizza with cheese,Main Course,Veg,Italian,true
+Burger,199,5,Chicken burger with fries,Snacks,Non-Veg,American,true
+Biryani,349,0,Hyderabadi biryani,Main Course,Non-Veg,Indian,true
+Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="menu_template.csv"');
+    res.send(template);
   }
 
   @Get('suggestions')
@@ -903,12 +920,12 @@ export class Restaurant_menuController {
     };
   }
 
-  @Patch(':uid/status/admin')
+  @Patch(':menuUid/status/admin')
   @ApiOperation({ summary: 'Admin toggles menu active/inactive status' })
   @ApiResponse({ status: 200, description: 'Menu status updated successfully' })
   @ApiResponse({ status: 404, description: 'Menu not found' })
   async menuStatusByAdmin(
-    @Param('uid') menuUid: string,
+    @Param('menuUid') menuUid: string,
     @Body() body: { status?: number; isActive?: number },
   ) {
     console.log('📌 Admin toggling menu status:', { menuUid, body });
