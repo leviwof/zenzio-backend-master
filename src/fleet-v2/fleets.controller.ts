@@ -44,6 +44,8 @@ import { Repository } from 'typeorm';
 import { FleetDocument } from './entity/fleet-document.entity';
 import { Fleet } from './entity/fleet.entity';
 import { RedisService } from 'src/redis/redis.service';
+import { Order } from 'src/orders/order.entity';
+import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 
 // interface AuthRequest extends Request {
 //   user?: {
@@ -60,8 +62,12 @@ export class FleetsController {
     private readonly fileService: FFileService,
     @InjectRepository(Fleet)
     private readonly fleetRepository: Repository<Fleet>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    @InjectRepository(RestaurantProfile)
+    private readonly restaurantProfileRepository: Repository<RestaurantProfile>,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   @Get('stats')
   async getPartnerStats() {
@@ -558,6 +564,75 @@ export class FleetsController {
   @RolesDecorator(RoleEnum.MASTER_ADMIN, RoleEnum.SUPER_ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   async getAllLiveLocations() {
+    const toNumber = (value: unknown): number | null => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const buildOrderDetails = (order: any, restaurant: any) => {
+      const deliveryLat = toNumber(order.delivery_lat);
+      const deliveryLng = toNumber(order.delivery_lng);
+      const customerLat = toNumber(order.customer_lat);
+      const customerLng = toNumber(order.customer_lng);
+      const hasDeliveryCoordinates =
+        deliveryLat !== null && deliveryLng !== null && !(deliveryLat === 0 && deliveryLng === 0);
+      const hasCustomerCoordinates =
+        customerLat !== null && customerLng !== null && !(customerLat === 0 && customerLng === 0);
+
+      const items = order.items || [];
+      const foodNames = items
+        .map((item: any) => item.name || item.menu_name || 'Unknown Item')
+        .join(', ');
+
+      let foodType = 'Unknown';
+      const itemTypes = items.map((item: any) => item.food_type?.toLowerCase());
+      if (itemTypes.length > 0) {
+        if (itemTypes.every((t: string) => t === 'veg')) {
+          foodType = 'Veg';
+        } else if (itemTypes.every((t: string) => t === 'non_veg' || t === 'non-veg')) {
+          foodType = 'Non-Veg';
+        } else if (itemTypes.some((t: string) => t === 'dessert' || t === 'drinks')) {
+          foodType = 'Dessert/Drinks';
+        } else {
+          foodType = 'Mix (Veg/Non-Veg)';
+        }
+      }
+
+      let pickedUpAt = null;
+      let deliveredAt = null;
+      if (order.status_timeline && Array.isArray(order.status_timeline)) {
+        const pickupEvent = order.status_timeline.find(
+          (event: any) => event.status === 'picked_up' || event.status === 'out_for_delivery',
+        );
+        const deliveredEvent = order.status_timeline.find(
+          (event: any) => event.status === 'delivered' || event.status === 'DELIVERED',
+        );
+
+        if (pickupEvent) pickedUpAt = pickupEvent.timestamp;
+        if (deliveredEvent) deliveredAt = deliveredEvent.timestamp;
+      }
+
+      return {
+        orderId: order.orderId,
+        restaurantName: restaurant?.restaurant_name || 'Unknown Restaurant',
+        foodNames: foodNames || 'Unknown Items',
+        foodType,
+        pickedUpAt,
+        deliveredAt,
+        deliveryStatus: order.deliveryPartnerStatus,
+        restaurantFoodType: restaurant?.food_type || 'non_veg',
+        isDelivered: order.deliveryPartnerStatus === 'delivered',
+        deliveredLocationAddress: order.delivery_address || null,
+        deliveredLocationLat: hasDeliveryCoordinates ? deliveryLat : hasCustomerCoordinates ? customerLat : null,
+        deliveredLocationLng: hasDeliveryCoordinates ? deliveryLng : hasCustomerCoordinates ? customerLng : null,
+        deliveredLocationSource: hasDeliveryCoordinates
+          ? 'last_partner_location'
+          : hasCustomerCoordinates
+            ? 'customer_delivery_location'
+            : 'none',
+      };
+    };
+
     // 1. Get all active fleets
     const fleets = await this.fleetRepository.find({
       where: { isActive: true },
@@ -565,22 +640,106 @@ export class FleetsController {
     });
 
     // 2. Get locations from Redis
-    const client = this.redisService.getClient();
     const results: any[] = [];
+
+    // 3. Get active and recently delivered orders for all partners
+    const trackingOrders = await this.orderRepository.find({
+      where: [
+        { deliveryPartnerStatus: 'picked_up' },
+        { deliveryPartnerStatus: 'out_for_delivery' },
+        { deliveryPartnerStatus: 'delivered' },
+      ],
+      order: { updatedAt: 'DESC' },
+    });
+
+    // Create a map of partner UID to the best order for tracking.
+    // Prefer active orders; otherwise keep the latest delivered order.
+    const orderMap = new Map<string, any>();
+    const activeStatuses = new Set(['picked_up', 'out_for_delivery']);
+    for (const order of trackingOrders) {
+      if (!order.delivery_partner_uid) continue;
+
+      const existingOrder = orderMap.get(order.delivery_partner_uid);
+      if (!existingOrder) {
+        orderMap.set(order.delivery_partner_uid, order);
+        continue;
+      }
+
+      const existingIsActive = activeStatuses.has(existingOrder.deliveryPartnerStatus);
+      const currentIsActive = activeStatuses.has(order.deliveryPartnerStatus);
+
+      if (!existingIsActive && currentIsActive) {
+        orderMap.set(order.delivery_partner_uid, order);
+      }
+    }
+
+    const selectedOrders = [...orderMap.values()];
+    const restaurantUids = [...new Set(selectedOrders.map((o) => o.restaurant_uid).filter(Boolean))];
+    const restaurantProfiles = await this.restaurantProfileRepository.find({
+      where: restaurantUids.map((uid) => ({ restaurantUid: uid })) as any,
+    });
+    const restaurantMap = new Map<string, any>();
+    for (const profile of restaurantProfiles) {
+      restaurantMap.set(profile.restaurantUid, profile);
+    }
 
     for (const fleet of fleets) {
       const loc = await this.redisService.get(`fleet:location:${fleet.uid}`);
+      const order = orderMap.get(fleet.uid);
+      const redisLat = toNumber(loc?.lat);
+      const redisLng = toNumber(loc?.lng);
+      const orderLat = toNumber(order?.delivery_lat);
+      const orderLng = toNumber(order?.delivery_lng);
+      const customerLat = toNumber(order?.customer_lat);
+      const customerLng = toNumber(order?.customer_lng);
+
+      const hasRedisLocation =
+        redisLat !== null && redisLng !== null && !(redisLat === 0 && redisLng === 0);
+      const hasOrderLocation =
+        orderLat !== null && orderLng !== null && !(orderLat === 0 && orderLng === 0);
+      const hasCustomerLocation =
+        customerLat !== null && customerLng !== null && !(customerLat === 0 && customerLng === 0);
+
+      const resolvedLat = hasRedisLocation
+        ? redisLat
+        : hasOrderLocation
+          ? orderLat
+          : hasCustomerLocation
+            ? customerLat
+            : 0;
+      const resolvedLng = hasRedisLocation
+        ? redisLng
+        : hasOrderLocation
+          ? orderLng
+          : hasCustomerLocation
+            ? customerLng
+            : 0;
+      const resolvedUpdatedAt = loc?.updatedAt || order?.updatedAt || null;
+
+      let orderDetails: any = null;
+      if (order) {
+        const restaurant = restaurantMap.get(order.restaurant_uid);
+        orderDetails = buildOrderDetails(order, restaurant);
+      }
 
       results.push({
         uid: fleet.uid,
         name:
           `${fleet.profile?.first_name || ''} ${fleet.profile?.last_name || ''}`.trim() ||
           'Partner',
-        lat: loc?.lat || 0,
-        lng: loc?.lng || 0,
-        lastUpdated: loc?.updatedAt || null,
-        status: loc ? 'Online' : 'Offline (No GPS)',
+        lat: resolvedLat,
+        lng: resolvedLng,
+        lastUpdated: resolvedUpdatedAt,
+        status: hasRedisLocation || hasOrderLocation ? 'Online' : 'Offline (No GPS)',
         isActive: fleet.isActive,
+        locationSource: hasRedisLocation
+          ? 'redis'
+          : hasOrderLocation
+            ? 'order'
+            : hasCustomerLocation
+              ? 'customer'
+              : 'none',
+        orderDetails,
       });
     }
 
