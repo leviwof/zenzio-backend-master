@@ -31,6 +31,7 @@ import { DeliveryHistoryController } from './delivery-history.controller';
 import { Order } from 'src/orders/order.entity';
 import { NotificationModule } from 'src/notifications/notification.module';
 import { ShiftChangeRequest } from './entity/shift-change-request.entity';
+import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 import { ShiftChangeRequestService } from './shift-change-request.service';
 import { ShiftChangeRequestController } from './shift-change-request.controller';
 // import { Vendor } from 'src/vendor/vendor.entity';
@@ -54,6 +55,7 @@ import { ShiftChangeRequestController } from './shift-change-request.controller'
       DeliveryHistory,
       Order,
       ShiftChangeRequest,
+      RestaurantProfile,
     ]),
     forwardRef(() => FirebaseModule),
     S3Module,
