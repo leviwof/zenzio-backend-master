@@ -39,12 +39,19 @@ export class OtpService {
 
     if (identifier.includes('@')) {
       // Send Email
-      const emailResponse = await this.mailService.sendMail(
-        identifier,
-        'Your Verification Code',
-        `<p>Your OTP code is: <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
-      );
-      response = { success: emailResponse.success, error: emailResponse.error };
+      try {
+        await this.mailService.sendMail(
+          identifier,
+          'Your Verification Code',
+          `<p>Your OTP code is: <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
+        );
+        response = { success: true };
+      } catch (error) {
+        response = {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     } else {
       // Send SMS
       const smsResponse = await this.smsService.sendOtp(identifier, Number(otp));

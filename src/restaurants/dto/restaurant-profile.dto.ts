@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsArray, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsNumber, IsEmail } from 'class-validator';
 
 export class UpdateRestaurantProfileDto {
   @IsOptional()
@@ -12,6 +12,10 @@ export class UpdateRestaurantProfileDto {
   @IsOptional()
   @IsString()
   contact_number?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Invalid email format' })
+  contact_email?: string;
 
   @IsOptional()
   @IsString()
