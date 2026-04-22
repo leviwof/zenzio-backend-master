@@ -1,0 +1,73 @@
+[
+    {
+        "id": "cust_Rh4nKjg6ZB2zqJ",
+        "entity": "customer",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "contact": "9876543210",
+        "gstin": null,
+        "notes": [],
+        "shipping_address": [],
+        "created_at": 1763441249
+    },
+    {
+        "id": "fa_Rh55JzB3K7sBb8",
+        "entity": "fund_account",
+        "customer_id": "cust_Rh4nKjg6ZB2zqJ",
+        "account_type": "bank_account",
+        "bank_account": {
+            "ifsc": "HDFC0001234",
+            "bank_name": "HDFC Bank",
+            "name": "John Doe",
+            "notes": [],
+            "account_number": "123456789012"
+        },
+        "batch_id": null,
+        "active": true,
+        "created_at": 1763442271
+    },
+    {
+        "id": "cust_Rh5ElS8wRUSG4P",
+        "entity": "customer",
+        "name": "John mohan",
+        "email": "john@example.com",
+        "contact": "9876543211",
+        "gstin": null,
+        "notes": [],
+        "shipping_address": [],
+        "created_at": 1763442808
+    },
+    {
+        "id": "fa_Rh5Mal5ojDaENP",
+        "entity": "fund_account",
+        "customer_id": "cust_Rh5ElS8wRUSG4P",
+        "account_type": "bank_account",
+        "bank_account": {
+            "ifsc": "HDFC0001234",
+            "bank_name": "HDFC Bank",
+            "name": "John Doe",
+            "notes": [],
+            "account_number": "123456789012"
+        },
+        "batch_id": null,
+        "active": true,
+        "created_at": 1763443252
+    },
+
+    {
+    "id": " ",
+    "entity": "contact",
+    "name": "John Doe",
+    "contact": "9876543210",
+    "email": "john@example.com",
+    "type": null,
+    "reference_id": "delivery_partner_001",
+    "batch_id": null,
+    "active": true,
+    "notes": {
+        "role": "delivery_partner",
+        "zone": "south_area"
+    },
+    "created_at": 1763443804
+}
+]
