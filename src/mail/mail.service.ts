@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import nodemailer, { Transporter } from 'nodemailer';
 
 interface SafeMailOptions {
@@ -51,7 +51,7 @@ export class MailService {
 
     const r = raw;
 
-    let envelopeFrom: string | undefined = undefined;
+    let envelopeFrom: string | undefined;
     let envelopeTo: string[] = [];
 
     if (this.isRecord(r.envelope)) {
@@ -80,11 +80,15 @@ export class MailService {
     to: string,
     subject: string,
     html: string,
-    from?: string, // 👈 NEW
-  ): Promise<{ success: boolean; error?: string }> {
+    from?: string,
+  ): Promise<{ success: true }> {
     try {
+      if (!process.env.MAIL_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASS) {
+        throw new Error('Mail service is not configured correctly');
+      }
+
       const mailOptions: SafeMailOptions = {
-        from: from ?? `"Your App" <${process.env.MAIL_USER ?? ''}>`, // 👈 dynamic sender
+        from: from ?? `"Your App" <${process.env.MAIL_USER ?? ''}>`,
         to,
         subject,
         html,
@@ -92,14 +96,21 @@ export class MailService {
 
       const info = await this.safeSendMail(mailOptions);
 
-      this.logger.log(`Email sent: ${info.messageId}`);
+      if (info.accepted.length === 0 || info.rejected.length > 0) {
+        throw new Error(
+          info.rejected.length > 0
+            ? `Mail rejected for: ${info.rejected.join(', ')}`
+            : 'Mail was not accepted by the SMTP server',
+        );
+      }
+
+      this.logger.log(`Email sent: ${info.messageId} to ${info.accepted.join(', ')}`);
 
       return { success: true };
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error('Email failed', errMsg);
-
-      return { success: false, error: errMsg };
+      throw new InternalServerErrorException(errMsg);
     }
   }
 }
