@@ -365,6 +365,14 @@ export class UsersService {
 
     if (!user) throw new NotFoundException(`User with uid=${uid} not found`);
 
+    user['fullAddress'] = [
+      user.address?.address,
+      user.address?.address_secondary,
+      user.address?.city,
+      user.address?.state,
+      user.address?.pincode,
+    ].filter(Boolean).join(', ');
+
     return user;
   }
 
