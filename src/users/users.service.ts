@@ -441,6 +441,8 @@ export class UsersService {
   }
 
   async updateByUid(user_uid: string, dto: UpdateUserProfileDto) {
+    console.log('[updateByUid] Input: user_uid=%s, dto=%o', user_uid, dto);
+
     const user = await this.userRepository.findOne({
       where: { uid: user_uid },
       relations: ['profile'],
@@ -448,7 +450,14 @@ export class UsersService {
 
     if (!user) throw new NotFoundException(`User with uid=${user_uid} not found`);
 
-    if (!user.profile) throw new NotFoundException(`Profile not found for user ${user_uid}`);
+    // Create profile if it doesn't exist (upsert)
+    if (!user.profile) {
+      console.log('[updateByUid] Creating new profile for user: %s', user_uid);
+      user.profile = await this.profileRepo.save({
+        userUid: user_uid,
+        user: user,
+      });
+    }
 
     // Handle password update via Firebase (not stored in local DB)
     if (dto.password && dto.password.trim().length > 0) {
@@ -463,7 +472,9 @@ export class UsersService {
     const { password, ...profileData } = dto;
     Object.assign(user.profile, profileData);
 
-    return await this.profileRepo.save(user.profile);
+    const saved = await this.profileRepo.save(user.profile);
+    console.log('[updateByUid] DB Result:', JSON.stringify(saved));
+    return saved;
   }
 
   async toggleUserIsActive(userUid: string) {

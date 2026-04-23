@@ -192,6 +192,7 @@ export class UsersController {
   @UseGuards(AccessTokenAuthGuard)
   @Put('profile')
   updateMyProfile(@Req() req: { user: JwtPayload }, @Body() dto: UpdateUserProfileDto) {
+    console.log('[PUT /users/profile] Incoming DTO:', JSON.stringify(dto));
     return this.usersService.updateByUid(req.user.uid, dto);
   }
 
