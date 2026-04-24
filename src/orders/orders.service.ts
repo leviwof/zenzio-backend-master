@@ -49,6 +49,14 @@ export class OrdersService implements OnModuleInit {
         ALTER TABLE "orders" 
         ADD COLUMN IF NOT EXISTS "packing_charge" float DEFAULT 10;
         
+        -- Revenue tracking columns
+        ALTER TABLE "orders" 
+        ADD COLUMN IF NOT EXISTS "is_revenue_counted" boolean DEFAULT false;
+        ALTER TABLE "orders" 
+        ADD COLUMN IF NOT EXISTS "refunded_amount" float DEFAULT 0;
+        ALTER TABLE "orders" 
+        ADD COLUMN IF NOT EXISTS "payment_status" varchar(50);
+        
         -- ✅ Standards: Force 15 min to 5 min for existing rows and set default
         UPDATE "orders" SET "estimated_time" = '5 min' WHERE "estimated_time" = '15 min' OR "estimated_time" = '15 mins';
         ALTER TABLE "orders" ALTER COLUMN "estimated_time" SET DEFAULT '5 min';
@@ -80,6 +88,44 @@ export class OrdersService implements OnModuleInit {
       total += price * qty;
     }
     return total;
+  }
+
+
+  private calculateRevenue(order: Order): number {
+    const deliveryFee = Number(order.delivery_fee) || 0;
+    const packingCharge = Number(order.packing_charge) || 0;
+    const tax = Number(order.taxes) || 0;
+    const refundedAmount = Number(order.refundedAmount) || 0;
+    const gross = deliveryFee + packingCharge + tax;
+    return Math.max(0, gross - refundedAmount);
+  }
+
+  private isValidRevenueOrder(order: Order): boolean {
+    const status = order.restaurantStatus?.toLowerCase();
+    const deliveryStatus = order.deliveryPartnerStatus?.toLowerCase();
+    const paymentMode = order.payment_mode?.toUpperCase();
+    const paymentStatus = order.paymentStatus?.toLowerCase();
+
+    if (['cancelled', 'rejected'].includes(status)) return false;
+    if (['cancelled', 'admin_cancelled'].includes(deliveryStatus)) return false;
+
+    if (paymentMode === 'ONLINE') {
+      return paymentStatus === 'success';
+    }
+
+    if (paymentMode === 'COD') {
+      return deliveryStatus === 'delivered';
+    }
+
+    return false;
+  }
+
+  private async markOrderForRevenue(orderId: string): Promise<void> {
+    const order = await this.orderRepo.findOne({ where: { id: orderId } });
+    if (order && !order.isRevenueCounted) {
+      order.isRevenueCounted = true;
+      await this.orderRepo.save(order);
+    }
   }
 
 
@@ -789,6 +835,14 @@ export class OrdersService implements OnModuleInit {
     const previousStatus = order.restaurantStatus;
     order.restaurantStatus = dto.status;
 
+    if (dto.status === 'rejected') {
+      order.status = 'cancelled';
+      if (order.isRevenueCounted) {
+        order.isRevenueCounted = false;
+        console.log(`⚠️ Revenue reversed for rejected order: ${order.orderId}`);
+      }
+    }
+
 
     if (dto.estimated_time) {
       order.estimated_time = dto.estimated_time;
@@ -998,6 +1052,7 @@ export class OrdersService implements OnModuleInit {
     if (isCancellation) {
       updateData.status = 'cancelled';
       updateData.restaurantStatus = 'cancelled';
+      updateData.isRevenueCounted = false;
     }
 
 
@@ -1696,6 +1751,10 @@ export class OrdersService implements OnModuleInit {
     order.status = 'completed';
     order.restaurantStatus = 'completed';
 
+    if (!order.isRevenueCounted && order.payment_mode?.toUpperCase() === 'COD') {
+      order.isRevenueCounted = true;
+    }
+
     await this.orderRepo.save(order);
 
 
@@ -1757,6 +1816,10 @@ export class OrdersService implements OnModuleInit {
       order.deliveryPartnerStatus = 'delivered';
     }
     order.status = 'completed';
+
+    if (!order.isRevenueCounted && order.payment_mode?.toUpperCase() === 'COD') {
+      order.isRevenueCounted = true;
+    }
 
 
     if (deliveryPhoto) {
@@ -2033,6 +2096,10 @@ export class OrdersService implements OnModuleInit {
     let totalOrdersCount = 0;
     let activeCustomersSet = new Set<string>();
 
+    let totalDeliveryFee = 0;
+    let totalPackagingCharge = 0;
+    let totalTax = 0;
+    let totalRefunded = 0;
 
     const dailyData: Record<string, number> = {};
     const restaurantRevenue: Record<string, { name: string; revenue: number }> = {};
@@ -2049,7 +2116,7 @@ export class OrdersService implements OnModuleInit {
     for (const order of orders) {
 
 
-      if (['rejected', 'cancelled'].includes(order.restaurantStatus)) continue;
+      if (!this.isValidRevenueOrder(order)) continue;
 
       if (!debugLogged && order.items && order.items.length > 0) {
         console.log('DEBUG: First Order Items Structure:', JSON.stringify(order.items, null, 2));
@@ -2058,21 +2125,23 @@ export class OrdersService implements OnModuleInit {
 
       totalOrdersCount++;
 
-
-
-      const adminCommission = Number(order.admin_commission) || (Number(order.item_total) / 1.08 * 0.08);
       const deliveryFee = Number(order.delivery_fee) || 0;
-      const packingCharge = Number(order.packing_charge) || (order.item_total ? 10 : 0);
+      const packingCharge = Number(order.packing_charge) || 0;
+      const tax = Number(order.taxes) || 0;
+      const refundedAmount = Number(order.refundedAmount) || 0;
+      const orderRevenue = Math.max(0, deliveryFee + packingCharge + tax - refundedAmount);
 
-      const adminRevenue = Number((adminCommission + deliveryFee).toFixed(2));
-
-      totalRevenue += adminRevenue;
+      totalDeliveryFee += deliveryFee;
+      totalPackagingCharge += packingCharge;
+      totalTax += tax;
+      totalRefunded += refundedAmount;
+      totalRevenue += orderRevenue;
 
       if (order.customer) activeCustomersSet.add(order.customer);
 
 
       const day = order.createdAt.toISOString().split('T')[0];
-      dailyData[day] = Number(((dailyData[day] || 0) + adminRevenue).toFixed(2));
+      dailyData[day] = Number(((dailyData[day] || 0) + orderRevenue).toFixed(2));
 
 
       if (order.restaurant_uid) {
@@ -2080,7 +2149,7 @@ export class OrdersService implements OnModuleInit {
           restaurantRevenue[order.restaurant_uid] = { name: 'Unknown', revenue: 0 };
         }
         restaurantRevenue[order.restaurant_uid].revenue = Number(
-          (restaurantRevenue[order.restaurant_uid].revenue + adminRevenue).toFixed(2),
+          (restaurantRevenue[order.restaurant_uid].revenue + orderRevenue).toFixed(2),
         );
       }
 
@@ -2274,14 +2343,20 @@ export class OrdersService implements OnModuleInit {
       .sort((a, b) => parseFloat(b.revenue) - parseFloat(a.revenue));
 
     return {
-      totalRevenue,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
       totalOrders: totalOrdersCount,
-      avgOrderValue,
+      avgOrderValue: Math.round(avgOrderValue * 100) / 100,
       activeCustomers: activeCustomersSet.size,
       dailySalesData: salesReportChart,
       topRestaurantsData: topRestaurants,
       orderSourceData: orderSourceChart,
       categoryData: categoryDetails,
+      revenueBreakdown: {
+        deliveryFee: Math.round(totalDeliveryFee * 100) / 100,
+        packagingCharge: Math.round(totalPackagingCharge * 100) / 100,
+        tax: Math.round(totalTax * 100) / 100,
+        refunded: Math.round(totalRefunded * 100) / 100,
+      },
     };
   }
 

@@ -219,9 +219,15 @@ export class RazorpayService {
     if (order) {
       console.log(`📦 Found Pending Order: ${order.orderId}`);
 
+      if (order.isRevenueCounted && order.paymentStatus === 'success') {
+        console.log(`⚠️ Duplicate webhook: Order ${order.orderId} already processed`);
+        return true;
+      }
       
       order.restaurantStatus = 'new';
       order.payment_mode = 'ONLINE';
+      order.paymentStatus = 'success';
+      order.isRevenueCounted = true;
       await this.orderRepo.save(order);
 
       console.log('✅ Order marked as NEW (Paid)');
@@ -269,6 +275,17 @@ export class RazorpayService {
     }
 
     const amountPaise = amount * 100;
+
+    try {
+      const order = await this.orderRepo.findOne({ where: { razorpay_order_id: paymentId } });
+      if (order) {
+        order.refundedAmount = (order.refundedAmount || 0) + amount;
+        await this.orderRepo.save(order);
+        console.log(`💰 Partial refund recorded: Order ${order.orderId}, Amount: ${amount}`);
+      }
+    } catch (err) {
+      console.error('Failed to update order refund amount:', err);
+    }
 
     return await refundRazorpayPayment(paymentId, amountPaise, this.keyId, this.keySecret);
   }
