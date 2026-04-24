@@ -141,4 +141,13 @@ export class Order {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ type: 'boolean', default: false })
+  isRevenueCounted: boolean;
+
+  @Column({ type: 'float', default: 0 })
+  refundedAmount: number;
+
+  @Column({ nullable: true })
+  paymentStatus: string;
 }
