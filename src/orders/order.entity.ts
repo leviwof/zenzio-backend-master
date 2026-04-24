@@ -142,12 +142,12 @@ export class Order {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'is_revenue_counted', type: 'boolean', default: false })
   isRevenueCounted: boolean;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ name: 'refunded_amount', type: 'float', default: 0 })
   refundedAmount: number;
 
-  @Column({ nullable: true })
+  @Column({ name: 'payment_status', nullable: true })
   paymentStatus: string;
 }
