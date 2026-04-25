@@ -41,6 +41,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
 
+@Controller('customers')
+export class CustomersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get('stats')
+  async getCustomerStats() {
+    return this.usersService.getCustomerStats();
+  }
+}
+
 @Controller('users')
 export class UsersController {
   constructor(
