@@ -11,7 +11,7 @@ import {
 
 import { AttendanceService } from './attendance.service';
 import { PunchDto } from './dto/punch.dto';
-import { AccessTokenAuthGuard } from 'src/guards';
+import { AccessTokenAuthGuard, WorkHoursGuard } from 'src/guards';
 import { JwtPayload } from 'src/shared/jwt.service';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/guards/roles.guard';
@@ -32,7 +32,7 @@ export class AttendanceController {
   // ---------------------------------------------------------
   // PUNCH / BREAK EVENT
   // ---------------------------------------------------------
-  @UseGuards(AccessTokenAuthGuard)
+  @UseGuards(AccessTokenAuthGuard, WorkHoursGuard)
   @Post('punch')
   async punch(@Req() req: AuthRequest, @Body() dto: PunchDto) {
     const fleet_uid = req.user?.uid;
