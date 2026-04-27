@@ -615,4 +615,32 @@ export class RestaurantMenuService {
     });
   }
 
+  async bulkUpdateStatus(ids: string[], isActive: boolean) {
+    const result = await this.menuRepository
+      .createQueryBuilder()
+      .update(RestaurantMenu)
+      .set({ isActive, status: isActive, updatedAt: new Date() })
+      .where('menu_uid IN (:...ids)', { ids })
+      .execute();
+
+    return {
+      updated: result.affected,
+      ids,
+    };
+  }
+
+  async bulkSoftDelete(ids: string[]) {
+    const now = new Date();
+    const result = await this.menuRepository
+      .createQueryBuilder()
+      .update(RestaurantMenu)
+      .set({ deletedAt: now, updatedAt: now })
+      .where('menu_uid IN (:...ids)', { ids })
+      .execute();
+
+    return {
+      deleted: result.affected,
+      ids,
+    };
+  }
 }
