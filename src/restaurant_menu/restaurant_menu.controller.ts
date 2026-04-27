@@ -15,7 +15,8 @@ import {
   Res,
   ParseIntPipe,
   Patch,
-
+  HttpCode,
+  HttpStatus,
   UseInterceptors,
   UploadedFiles,
   UnauthorizedException,
@@ -1200,5 +1201,47 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
     @Param('menu_uid') menu_uid: string,
   ): Promise<MenuImageUploadResponse[]> {
     return this.fileService.uploadMultipleMenuImages(files, menu_uid);
+  }
+
+  @Patch('bulk-status')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @ApiOperation({ summary: 'Bulk update menu status' })
+  async bulkUpdateStatus(@Body() body: { ids: string[]; isActive: boolean }) {
+    const { ids, isActive } = body;
+    if (!ids || ids.length === 0) {
+      throw new BadRequestException('IDs array is required');
+    }
+
+    const result = await this.restaurant_menuService.bulkUpdateStatus(ids, isActive);
+
+    return {
+      status: 'success',
+      code: 200,
+      message: 'Menu status updated successfully',
+      data: result,
+      meta: { timestamp: new Date().toISOString() },
+    };
+  }
+
+  @Delete('bulk-soft')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @ApiOperation({ summary: 'Bulk soft delete menus' })
+  async bulkSoftDelete(@Body() body: { ids: string[] }) {
+    const { ids } = body;
+    if (!ids || ids.length === 0) {
+      throw new BadRequestException('IDs array is required');
+    }
+
+    const result = await this.restaurant_menuService.bulkSoftDelete(ids);
+
+    return {
+      status: 'success',
+      code: 200,
+      message: 'Menus deleted successfully',
+      data: result,
+      meta: { timestamp: new Date().toISOString() },
+    };
   }
 }

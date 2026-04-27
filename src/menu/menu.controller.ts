@@ -15,6 +15,7 @@ import {
   Get,
   Param,
   NotFoundException,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -23,6 +24,7 @@ import { MenuService } from './menu.service';
 import { MenuImagesService } from './menu-images.service';
 import { Menu } from './menu.entity';
 import { MulterFile } from 'src/types/multer-file.type';
+import { UpdateMenuStatusDto, BulkUpdateStatusDto, BulkDeleteDto } from './dto/menu-status.dto';
 
 @Controller('menu')
 export class MenuController {
@@ -31,7 +33,6 @@ export class MenuController {
     private readonly menuImagesService: MenuImagesService,
   ) {}
 
-  // CREATE ----------------------------------------------
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
@@ -57,7 +58,6 @@ export class MenuController {
       }
     }
 
-    // Upload image to S3 if provided
     let imageUrl: string | undefined;
     if (image) {
       const uploadResult = await this.menuImagesService.uploadMenuImage(image);
@@ -68,6 +68,7 @@ export class MenuController {
       ...body,
       customizationOptions: customizationOptions || [],
       imageUrl,
+      isActive: true,
     };
 
     const created = await this.menuService.create(payload);
@@ -78,7 +79,6 @@ export class MenuController {
     };
   }
 
-  // UPDATE ----------------------------------------------
   @Put(':id')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true, skipMissingProperties: true }))
@@ -108,7 +108,6 @@ export class MenuController {
       }
     }
 
-    // Upload new image to S3 if provided
     let imageUrl: string | undefined;
     if (image) {
       const uploadResult = await this.menuImagesService.uploadMenuImage(image);
@@ -130,25 +129,53 @@ export class MenuController {
     };
   }
 
-  // DELETE ----------------------------------------------
+  @Patch(':id/status')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async updateStatus(@Param('id') id: string, @Body() dto: UpdateMenuStatusDto) {
+    const updated = await this.menuService.updateStatus(id, dto);
+    return {
+      message: 'Menu status updated successfully',
+      data: updated,
+    };
+  }
+
+  @Patch('bulk-status')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async bulkUpdateStatus(@Body() dto: BulkUpdateStatusDto) {
+    const result = await this.menuService.bulkUpdateStatus(dto);
+    return {
+      message: 'Menu status updated successfully',
+      data: result,
+    };
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async deleteMenu(@Param('id') id: string) {
-    const removed = await this.menuService.remove(id);
-    if (!removed) throw new NotFoundException('Menu item not found');
-
+    await this.menuService.remove(id);
     return {
       message: 'Menu deleted successfully',
     };
   }
 
-  // GET ALL ----------------------------------------------
+  @Delete('bulk')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async bulkDelete(@Body() dto: BulkDeleteDto) {
+    const result = await this.menuService.bulkDelete(dto);
+    return {
+      message: 'Menus deleted successfully',
+      data: result,
+    };
+  }
+
   @Get()
   async list() {
     return this.menuService.findAll();
   }
 
-  // GET ONE ----------------------------------------------
   @Get(':id')
   async getOne(@Param('id') id: string) {
     return this.menuService.findOne(id);
