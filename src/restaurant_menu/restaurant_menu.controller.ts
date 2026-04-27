@@ -48,6 +48,8 @@ import { RestaurantMenuUpdateDto } from './dto/restaurant_menu-update.dto';
 import { RestaurantMenu } from './restaurant_menu.entity';
 import { AuthRequest, RequestWithUser } from 'src/types/auth-request';
 import { GetNearestMenusDto } from './dto/get-nearest-menus.dto';
+import { GlobalSettingsService } from 'src/global-settings/global-settings.service';
+import { calculateFinalPrice, getPlatformFeePercent } from 'src/utils/price.util';
 
 export interface AuthUser {
   uid: string;
@@ -61,6 +63,7 @@ export class Restaurant_menuController {
   constructor(
     private readonly restaurant_menuService: RestaurantMenuService,
     private readonly fileService: MFileService,
+    private readonly globalSettingsService: GlobalSettingsService,
   ) { }
 
 
@@ -295,10 +298,25 @@ export class Restaurant_menuController {
   async findAll(@Query('page') page = 1, @Query('limit') limit = 10) {
     const [items, total] = await this.restaurant_menuService.findAllWithPagination(+page, +limit);
 
+    const platformFeePercent = await getPlatformFeePercent(this.globalSettingsService);
+
+    const itemsWithPrices = items.map((item: RestaurantMenu) => {
+      const priceData = calculateFinalPrice({
+        price: Number(item.price),
+        discount: item.discount ? Number(item.discount) : 0,
+        platformFeePercent,
+      });
+      return {
+        ...item,
+        basePrice: priceData.basePrice,
+        finalPrice: priceData.finalPrice,
+      };
+    });
+
     return {
       status: 'success',
       code: 200,
-      data: { restaurant_menus: items },
+      data: { restaurant_menus: itemsWithPrices },
       meta: {
         timestamp: new Date().toISOString(),
         total,
@@ -418,11 +436,25 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       });
 
     const [items, total] = result;
+    const platformFeePercent = await getPlatformFeePercent(this.globalSettingsService);
+
+    const itemsWithPrices = items.map((item: RestaurantMenu) => {
+      const priceData = calculateFinalPrice({
+        price: Number(item.price),
+        discount: item.discount ? Number(item.discount) : 0,
+        platformFeePercent,
+      });
+      return {
+        ...item,
+        basePrice: priceData.basePrice,
+        finalPrice: priceData.finalPrice,
+      };
+    });
 
     return {
       status: 'success',
       code: 200,
-      data: { restaurant_menus: items },
+      data: { restaurant_menus: itemsWithPrices },
       meta: {
         timestamp: new Date().toISOString(),
         total,
@@ -455,10 +487,25 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       Number(limit),
     );
 
+    const platformFeePercent = await getPlatformFeePercent(this.globalSettingsService);
+
+    const itemsWithPrices = items.map((item: any) => {
+      const priceData = calculateFinalPrice({
+        price: Number(item.price),
+        discount: item.discount ? Number(item.discount) : 0,
+        platformFeePercent,
+      });
+      return {
+        ...item,
+        basePrice: priceData.basePrice,
+        finalPrice: priceData.finalPrice,
+      };
+    });
+
     return {
       status: 'success',
       code: 200,
-      data: { restaurant_menus: items },
+      data: { restaurant_menus: itemsWithPrices },
       meta: {
         timestamp: new Date().toISOString(),
         total,
@@ -490,10 +537,25 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       },
     );
 
+    const platformFeePercent = await getPlatformFeePercent(this.globalSettingsService);
+
+    const itemsWithPrices = items.map((item: any) => {
+      const priceData = calculateFinalPrice({
+        price: Number(item.price),
+        discount: item.discount ? Number(item.discount) : 0,
+        platformFeePercent,
+      });
+      return {
+        ...item,
+        basePrice: priceData.basePrice,
+        finalPrice: priceData.finalPrice,
+      };
+    });
+
     return {
       status: 'success',
       code: 200,
-      data: { restaurant_menus: items },
+      data: { restaurant_menus: itemsWithPrices },
       meta: {
         timestamp: new Date().toISOString(),
         total,
@@ -536,10 +598,25 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
     console.log(`📊 [/restaurant-menu/me] Returning ${items.length} items out of ${total} total`);
     console.log(`📊 [/restaurant-menu/me] Menu names:`, items.map(i => i.menu_name));
 
+    const platformFeePercent = await getPlatformFeePercent(this.globalSettingsService);
+
+    const itemsWithPrices = items.map((item: RestaurantMenu) => {
+      const priceData = calculateFinalPrice({
+        price: Number(item.price),
+        discount: item.discount ? Number(item.discount) : 0,
+        platformFeePercent,
+      });
+      return {
+        ...item,
+        basePrice: priceData.basePrice,
+        finalPrice: priceData.finalPrice,
+      };
+    });
+
     return {
       status: 'success',
       code: 200,
-      data: { restaurant_menus: items },
+      data: { restaurant_menus: itemsWithPrices },
       meta: {
         timestamp: new Date().toISOString(),
         total,
@@ -577,10 +654,25 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       showInactive,
     );
 
+    const platformFeePercent = await getPlatformFeePercent(this.globalSettingsService);
+
+    const itemsWithPrices = items.map((item: RestaurantMenu) => {
+      const priceData = calculateFinalPrice({
+        price: Number(item.price),
+        discount: item.discount ? Number(item.discount) : 0,
+        platformFeePercent,
+      });
+      return {
+        ...item,
+        basePrice: priceData.basePrice,
+        finalPrice: priceData.finalPrice,
+      };
+    });
+
     return {
       status: 'success',
       code: 200,
-      data: { restaurant_menus: items },
+      data: { restaurant_menus: itemsWithPrices },
       meta: {
         timestamp: new Date().toISOString(),
         total,
@@ -618,10 +710,25 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       +limit,
     );
 
+    const platformFeePercent = await getPlatformFeePercent(this.globalSettingsService);
+
+    const itemsWithPrices = items.map((item: RestaurantMenu) => {
+      const priceData = calculateFinalPrice({
+        price: Number(item.price),
+        discount: item.discount ? Number(item.discount) : 0,
+        platformFeePercent,
+      });
+      return {
+        ...item,
+        basePrice: priceData.basePrice,
+        finalPrice: priceData.finalPrice,
+      };
+    });
+
     return {
       status: 'success',
       code: 200,
-      data: { restaurant_menus: items },
+      data: { restaurant_menus: itemsWithPrices },
       meta: {
         timestamp: new Date().toISOString(),
         total,
