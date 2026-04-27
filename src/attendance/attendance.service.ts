@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { AttendanceEntity } from './entities/attendance.entity';
 import { AttendanceEventType, PunchDto, AttendanceEventLog } from './dto/punch.dto';
 import { Fleet } from 'src/fleet-v2/entity/fleet.entity';
+import { getShiftById } from 'src/constants/shifts.constant';
 
 @Injectable()
 export class AttendanceService {
@@ -74,50 +75,53 @@ export class AttendanceService {
         if (lastEvent === AttendanceEventType.PUNCH_IN)
           throw new BadRequestException('Already punched in.');
 
-        // 🛡️ Fleet Work Type Shift validation
+        // Work Hours Guard - prevent punch in between 11PM and 7AM
+        const currentTime = this.getISTDate();
+        const currentHour = currentTime.getHours();
+        const currentMin = currentTime.getMinutes();
+        const currentTimeMinutes = currentHour * 60 + currentMin;
+        const startBlock = 23 * 60;
+        const endBlock = 7 * 60;
+        if (currentTimeMinutes >= startBlock || currentTimeMinutes < endBlock) {
+          throw new BadRequestException('Login/work not allowed between 11PM and 7AM');
+        }
+
         const fleet = await this.fleetRepo.findOne({
           where: { uid: fleet_uid },
-          relations: ['profile', 'profile.work_type'],
+          relations: ['profile'],
         });
 
-        const workType = fleet?.profile?.work_type;
-        if (workType && workType.start_time) {
-          const currentTime = this.getISTDate();
-          const currentHour = currentTime.getHours();
-          const currentMin = currentTime.getMinutes();
+        if (!fleet?.shift_id) {
+          throw new BadRequestException('No shift assigned. Please contact admin to assign a shift first.');
+        }
 
-          // Block punching in BEFORE start_time
-          const [startHour, startMin] = workType.start_time.split(':').map(Number);
-          if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
-            const formattedStart = `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`;
-            throw new BadRequestException(`Cannot punch in before your assigned shift starts at ${formattedStart}.`);
-          }
+        const shift = getShiftById(fleet.shift_id);
+        if (!shift) {
+          throw new BadRequestException('Invalid shift configuration. Please contact admin.');
+        }
 
-          // Block punching in AFTER end_time
-          if (workType.end_time) {
-            const [endHour, endMin] = workType.end_time.split(':').map(Number);
-            
-            // Handle cross-midnight shifts (e.g. 18:00 to 02:00) 
-            // If endHour is less than startHour, the shift goes over midnight.
-            // A simple implementation here assumes standard same-day shifts.
-            const isCrossMidnight = endHour < startHour;
-            
-            if (!isCrossMidnight) {
-              if (currentHour > endHour || (currentHour === endHour && currentMin > endMin)) {
-                const formattedEnd = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
-                throw new BadRequestException(`Cannot punch in after your assigned shift ends at ${formattedEnd}.`);
-              }
-            } else {
-              // For shifts that go past midnight (e.g. 10PM to 6AM)
-              // If we are currently BEFORE the start time AND AFTER the end time
-              // then we missed the window.
-              if ((currentHour < startHour || (currentHour === startHour && currentMin < startMin)) && 
-                  (currentHour > endHour || (currentHour === endHour && currentMin > endMin))) {
-                const formattedEnd = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
-                throw new BadRequestException(`Cannot punch in outside your assigned shift. Shift ends at ${formattedEnd}.`);
-              }
-            }
+        const parse12HourToMinutes = (timeStr: string): number => {
+          const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+          if (!match) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
           }
+          let hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          const period = match[3].toUpperCase();
+          if (period === 'PM' && hours !== 12) hours += 12;
+          if (period === 'AM' && hours === 12) hours = 0;
+          return hours * 60 + minutes;
+        };
+
+        const shiftStartMinutes = parse12HourToMinutes(shift.start);
+        const shiftEndMinutes = parse12HourToMinutes(shift.end);
+
+        if (currentTimeMinutes < shiftStartMinutes) {
+          throw new BadRequestException(`Cannot punch in before your shift starts at ${shift.start}.`);
+        }
+        if (shiftEndMinutes > shiftStartMinutes && currentTimeMinutes > shiftEndMinutes) {
+          throw new BadRequestException(`Cannot punch in after your shift ends at ${shift.end}.`);
         }
         break;
 
@@ -139,6 +143,39 @@ export class AttendanceService {
       case AttendanceEventType.BREAK_END:
         if (lastEvent !== AttendanceEventType.BREAK_START)
           throw new BadRequestException('No break to end.');
+
+        // Break validation against shift config
+        const breakStartEvent = events.find(e => e.type === AttendanceEventType.BREAK_START);
+        if (breakStartEvent) {
+          const breakStartTime = new Date(breakStartEvent.time).getTime();
+          const breakEndTime = new Date(this.formatIST(nowIST)).getTime();
+          const breakDurationMinutes = Math.round((breakEndTime - breakStartTime) / 60000);
+
+          const fleetForBreakValidation = await this.fleetRepo.findOne({
+            where: { uid: fleet_uid },
+          });
+
+          if (fleetForBreakValidation?.shift_id) {
+            const shift = getShiftById(fleetForBreakValidation.shift_id);
+            if (shift) {
+              if (shift.breakType === 'CONTINUOUS') {
+                // Full time shifts require exactly 2 hours continuous break
+                if (breakDurationMinutes !== shift.breakMinutes) {
+                  throw new BadRequestException(
+                    `Full time shift requires exactly ${shift.breakMinutes} minutes continuous break. You took ${breakDurationMinutes} minutes.`,
+                  );
+                }
+              } else {
+                // Standard shifts allow max 30 mins total break
+                if (breakDurationMinutes > shift.breakMinutes) {
+                  throw new BadRequestException(
+                    `Maximum ${shift.breakMinutes} minutes break allowed. You took ${breakDurationMinutes} minutes.`,
+                  );
+                }
+              }
+            }
+          }
+        }
         break;
     }
 

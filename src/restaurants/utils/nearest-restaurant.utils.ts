@@ -61,6 +61,8 @@ export function buildNearestActiveRestaurantsQuery(filter: string = 'all', sort?
         r.uid AS restaurant_uid,
         r.id AS restaurant_id,
         r."isDiningEnabled",
+        r."isActive",
+        r."isManuallyOff",
         r.rating_avg,
         r."createdAt",
   

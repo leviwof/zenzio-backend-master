@@ -98,4 +98,13 @@ export class Fleet {
     cascade: true,
   })
   emergencyContacts: FleetEmergencyContact[];
+
+  @Column({ type: 'varchar', nullable: true })
+  shift_id: string;
+
+  @Column({ type: 'boolean', default: false })
+  shift_locked: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  shift_assigned_at: Date;
 }

@@ -34,6 +34,8 @@ import { ShiftChangeRequest } from './entity/shift-change-request.entity';
 import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 import { ShiftChangeRequestService } from './shift-change-request.service';
 import { ShiftChangeRequestController } from './shift-change-request.controller';
+import { ShiftService } from './shift.service';
+import { ShiftController } from './shift.controller';
 // import { Vendor } from 'src/vendor/vendor.entity';
 // import { Candidate } from 'src/candidate/candidate.entity';
 
@@ -67,6 +69,7 @@ import { ShiftChangeRequestController } from './shift-change-request.controller'
     ForgotPasswordController,
     DeliveryHistoryController,
     ShiftChangeRequestController,
+    ShiftController,
   ],
   providers: [
     FleetsService,
@@ -79,6 +82,7 @@ import { ShiftChangeRequestController } from './shift-change-request.controller'
     MailService,
     DeliveryHistoryService,
     ShiftChangeRequestService,
+    ShiftService,
   ],
   exports: [FleetsService], // If needed in other modules
 })
