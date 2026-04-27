@@ -20,6 +20,7 @@ export class GlobalSettingsService {
         const defaultSettings = this.settingsRepository.create({
             enableOnlinePayment: true,
             enableCODPayment: true,
+            platformFeePercent: 33,
         });
         return this.settingsRepository.save(defaultSettings);
     }

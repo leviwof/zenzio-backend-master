@@ -10,4 +10,7 @@ export class GlobalSettings {
 
     @Column({ default: true })
     enableCODPayment: boolean;
+
+    @Column({ default: 33, name: 'platform_fee_percent' })
+    platformFeePercent: number;
 }

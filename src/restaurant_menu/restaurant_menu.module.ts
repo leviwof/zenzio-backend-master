@@ -12,12 +12,14 @@ import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.ent
 import { FileService } from 'src/file/file.service';
 import { S3Module } from 'src/aws/s3.module';
 import { MFileService } from './menu-images.service';
+import { GlobalSettingsModule } from 'src/global-settings/global-settings.module';
 // import { S3Util } from 'src/aws/s3.util';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([RestaurantMenu, RestaurantEnum, Restaurant, RestaurantProfile]),
     S3Module, // <--- FIX
+    GlobalSettingsModule,
   ],
   controllers: [Restaurant_menuController, RestaurantEnumController],
   providers: [

@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, Min, Max } from 'class-validator';
 
 export class UpdateGlobalSettingsDto {
     @IsBoolean()
@@ -8,4 +8,10 @@ export class UpdateGlobalSettingsDto {
     @IsBoolean()
     @IsOptional()
     enableCODPayment?: boolean;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    @Max(100)
+    platformFeePercent?: number;
 }
