@@ -55,6 +55,7 @@ import { Event } from 'src/events/entities/event.entity';
 import { Subscription } from 'src/subscriptions/entities/subscription.entity';
 import { DiningSpace } from 'src/bookings/entities/dining-space.entity';
 import { Session } from 'src/auth/session.entity';
+import { getRestaurantStatus } from 'src/utils/restaurant-status.util';
 
 @Injectable()
 export class RestaurantsService implements OnModuleInit {
@@ -417,7 +418,9 @@ export class RestaurantsService implements OnModuleInit {
     const isGstRegistered = Boolean(user.documents?.[0]?.gst_number?.toString().trim());
     const { documents: _docs, ...publicData } = user;
 
-    return { ...publicData, isGstRegistered };
+    const { isOpen, statusLabel } = getRestaurantStatus(user);
+
+    return { ...publicData, isOpen, statusLabel, isGstRegistered };
   }
 
   async findByUidForAdmin(uid: string): Promise<Restaurant> {
@@ -441,7 +444,9 @@ export class RestaurantsService implements OnModuleInit {
       user.profile.photo = this.normalizeRestaurantPhotos(user.profile.photo);
     }
 
-    return user;
+    const { isOpen, statusLabel } = getRestaurantStatus(user);
+
+    return { ...user as any, isOpen, statusLabel };
   }
 
   async refreshAuthToken(@Query('refreshToken') refreshToken: string) {
@@ -459,6 +464,25 @@ export class RestaurantsService implements OnModuleInit {
       }
 
       return restaurant;
+    });
+  }
+
+  async findAllWithStatus(): Promise<(Restaurant & { isOpen: boolean; statusLabel: string })[]> {
+    const restaurants = await this.restaurantRepository.find({
+      relations: ['profile'],
+    });
+
+    return restaurants.map((restaurant) => {
+      if (restaurant.profile) {
+        restaurant.profile.photo = this.normalizeRestaurantPhotos(restaurant.profile.photo);
+      }
+
+      const { isOpen, statusLabel } = getRestaurantStatus(restaurant);
+      return {
+        ...restaurant as any,
+        isOpen,
+        statusLabel,
+      };
     });
   }
 

@@ -12,18 +12,39 @@ export async function toggleRestaurantActiveUtil(
     throw new NotFoundException(`Restaurant with UID ${uid} not found`);
   }
 
-  restaurant.isActive = !restaurant.isActive; // Toggle boolean
+  // Owner toggle - use isManuallyOff (not isActive)
+  restaurant.isManuallyOff = !restaurant.isManuallyOff;
 
   await restaurantRepository.save(restaurant);
 
+  const { isOpen, statusLabel } = getRestaurantStatus(restaurant);
+
   return {
     status: 'success',
-    message: `Restaurant isActive updated to ${restaurant.isActive}`,
+    message: `Restaurant isManuallyOff updated to ${restaurant.isManuallyOff}`,
     data: {
       id: restaurant.id,
       uid: restaurant.uid,
-      isActive: restaurant.isActive,
-      isActive_flag: restaurant.isActive ? 'Open' : 'Closed',
+      isManuallyOff: restaurant.isManuallyOff,
+      isOpen,
+      statusLabel,
     },
   };
+}
+
+function getRestaurantStatus(restaurant: Restaurant): { isOpen: boolean; statusLabel: string } {
+  const now = new Date();
+  const hour = now.getHours();
+  const timeClosed = hour >= 23 || hour < 7;
+
+  const isOpen = restaurant.isActive && !restaurant.isManuallyOff && !timeClosed;
+
+  let statusLabel = 'ON';
+  if (!restaurant.isActive) {
+    statusLabel = 'BLOCKED';
+  } else if (!isOpen) {
+    statusLabel = 'OFF';
+  }
+
+  return { isOpen, statusLabel };
 }

@@ -57,6 +57,9 @@ export class Restaurant {
   @Column({ type: 'boolean', default: false })
   isActive: boolean;
 
+  @Column({ type: 'boolean', default: false, name: 'is_manually_off' })
+  isManuallyOff: boolean;
+
   @Column({ type: 'enum', enum: ['open', 'closed'], default: 'closed' })
   isActive_flag: string;
 

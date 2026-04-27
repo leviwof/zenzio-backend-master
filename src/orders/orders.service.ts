@@ -16,6 +16,8 @@ import { FileService } from 'src/file/file.service';
 import { MulterFile } from 'src/types/multer-file.type';
 import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 import { RestaurantDocument } from 'src/restaurants/entity/restaurant_document.entity';
+import { Restaurant } from 'src/restaurants/entity/restaurant.entity';
+import { checkRestaurantOpen } from 'src/utils/restaurant-status.util';
 import { ReferralService } from 'src/referral/referral.service';
 
 
@@ -30,6 +32,8 @@ export class OrdersService implements OnModuleInit {
     private readonly restaurantProfileRepo: Repository<RestaurantProfile>,
     @InjectRepository(RestaurantDocument)
     private readonly restaurantDocRepo: Repository<RestaurantDocument>,
+    @InjectRepository(Restaurant)
+    private readonly restaurantRepo: Repository<Restaurant>,
     private readonly notificationService: NotificationService,
     private readonly redisService: RedisService,
     private readonly fileService: FileService,
@@ -503,6 +507,19 @@ export class OrdersService implements OnModuleInit {
   async create(dto: CreateOrderDto) {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
+    }
+
+    // Check if restaurant is open
+    const restaurant = await this.restaurantRepo.findOne({
+      where: { uid: dto.restaurant_uid },
+    });
+
+    if (!restaurant) {
+      throw new BadRequestException('Restaurant not found');
+    }
+
+    if (!checkRestaurantOpen(restaurant)) {
+      throw new BadRequestException('Restaurant is currently closed');
     }
 
 

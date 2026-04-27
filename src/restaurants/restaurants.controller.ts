@@ -218,7 +218,16 @@ export class RestaurantsController {
   @ApiOperation({ summary: 'Get all restaurants' })
   @ApiResponse({ status: 200, description: 'Restaurants loaded' })
   async findAll() {
-    return this.restaurantService.findAll();
+    const restaurants = await this.restaurantService.findAllWithStatus();
+    return {
+      status: 'success',
+      code: 200,
+      data: { restaurants },
+      meta: {
+        timestamp: new Date().toISOString(),
+        total: restaurants.length,
+      },
+    };
   }
 
   
