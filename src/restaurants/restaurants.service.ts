@@ -55,6 +55,7 @@ import { Event } from 'src/events/entities/event.entity';
 import { Subscription } from 'src/subscriptions/entities/subscription.entity';
 import { DiningSpace } from 'src/bookings/entities/dining-space.entity';
 import { Session } from 'src/auth/session.entity';
+import { getRestaurantStatus } from './utils/restaurant-status.util';
 
 @Injectable()
 export class RestaurantsService implements OnModuleInit {
@@ -137,6 +138,22 @@ export class RestaurantsService implements OnModuleInit {
     await this.migrateDeliveryRadius();
     await this.migrateDiningColumns();
     await this.cleanupAllProfiles();
+    await this.migrateIsManuallyOff();
+  }
+
+  /**
+   * Add isManuallyOff column if it doesn't exist (one-time migration)
+   */
+  private async migrateIsManuallyOff() {
+    try {
+      const queryRunner = this.restaurantRepository.manager.connection.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.query(`ALTER TABLE restaurants ADD COLUMN "isManuallyOff" boolean DEFAULT false`);
+      await queryRunner.release();
+      console.log('✅ isManuallyOff column added');
+    } catch (e) {
+      console.log('✅ isManuallyOff column check complete (may already exist)');
+    }
   }
 
   /**
@@ -417,10 +434,15 @@ export class RestaurantsService implements OnModuleInit {
     const isGstRegistered = Boolean(user.documents?.[0]?.gst_number?.toString().trim());
     const { documents: _docs, ...publicData } = user;
 
-    return { ...publicData, isGstRegistered };
+    const { isOpen, statusLabel } = getRestaurantStatus({
+      isActive: user.isActive,
+      isManuallyOff: user.isManuallyOff,
+    });
+
+    return { ...publicData, isGstRegistered, isOpen, statusLabel };
   }
 
-  async findByUidForAdmin(uid: string): Promise<Restaurant> {
+  async findByUidForAdmin(uid: string): Promise<Restaurant & { isOpen: boolean; statusLabel: string }> {
     const user = await this.restaurantRepository.findOne({
       where: { uid },
       relations: [
@@ -441,14 +463,23 @@ export class RestaurantsService implements OnModuleInit {
       user.profile.photo = this.normalizeRestaurantPhotos(user.profile.photo);
     }
 
-    return user;
+    const { isOpen, statusLabel } = getRestaurantStatus({
+      isActive: user.isActive,
+      isManuallyOff: user.isManuallyOff,
+    });
+
+    return {
+      ...user,
+      isOpen,
+      statusLabel,
+    };
   }
 
   async refreshAuthToken(@Query('refreshToken') refreshToken: string) {
     return this.firebaseService.refreshAuthToken(refreshToken);
   }
 
-  async findAll(): Promise<Restaurant[]> {
+  async findAll(): Promise<(Restaurant & { isOpen: boolean; statusLabel: string })[]> {
     const restaurants = await this.restaurantRepository.find({
       relations: ['profile'],
     });
@@ -458,7 +489,16 @@ export class RestaurantsService implements OnModuleInit {
         restaurant.profile.photo = this.normalizeRestaurantPhotos(restaurant.profile.photo);
       }
 
-      return restaurant;
+      const { isOpen, statusLabel } = getRestaurantStatus({
+        isActive: restaurant.isActive,
+        isManuallyOff: restaurant.isManuallyOff,
+      });
+
+      return {
+        ...restaurant,
+        isOpen,
+        statusLabel,
+      };
     });
   }
 
@@ -484,6 +524,28 @@ export class RestaurantsService implements OnModuleInit {
 
   async toggleRestaurantActive(uid: string) {
     return toggleRestaurantActiveUtil(this.restaurantRepository, uid);
+  }
+
+  async toggleRestaurantOff(uid: string) {
+    const restaurant = await this.restaurantRepository.findOne({ where: { uid } });
+
+    if (!restaurant) {
+      throw new NotFoundException(`Restaurant with UID ${uid} not found`);
+    }
+
+    restaurant.isManuallyOff = !restaurant.isManuallyOff;
+
+    await this.restaurantRepository.save(restaurant);
+
+    return {
+      status: 'success',
+      message: `Restaurant isManuallyOff updated to ${restaurant.isManuallyOff}`,
+      data: {
+        id: restaurant.id,
+        uid: restaurant.uid,
+        isManuallyOff: restaurant.isManuallyOff,
+      },
+    };
   }
 
   async statusRestaurantByAdmin(
@@ -704,6 +766,11 @@ export class RestaurantsService implements OnModuleInit {
         Array.isArray(r.photo) ? (r.photo as unknown[]).map((p) => String(p)) : [],
       );
 
+      const { isOpen, statusLabel } = getRestaurantStatus({
+        isActive: r.isActive,
+        isManuallyOff: r.isManuallyOff,
+      });
+
       return {
         restaurant_uid: String(r.restaurant_uid),
         restaurant_id: Number(r.restaurant_id),
@@ -719,6 +786,8 @@ export class RestaurantsService implements OnModuleInit {
         rating_avg: r.rating_avg ? Number(r.rating_avg) : 0,
         food_type: r.food_type ? String(r.food_type) : null,
         current_offers: Array.isArray(r.current_offers) ? r.current_offers : [],
+        isOpen,
+        statusLabel,
         profile: {
           restaurant_name: r.restaurant_name ? String(r.restaurant_name) : null,
           contact_person: r.contact_person ? String(r.contact_person) : null,

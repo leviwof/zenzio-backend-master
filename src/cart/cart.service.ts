@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -14,12 +14,14 @@ import { CartOrderStatus } from 'src/constants/status.constants';
 import { RestaurantMenu } from 'src/restaurant_menu/restaurant_menu.entity';
 import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 import { RestaurantDocument } from 'src/restaurants/entity/restaurant_document.entity';
+import { Restaurant } from 'src/restaurants/entity/restaurant.entity';
 
 import { UtilService } from 'src/utils/util.service';
 import { Order } from 'src/orders/order.entity';
 import { RazorpayService } from 'src/payments/razorpay.service';
 import { NotificationService } from 'src/notifications/notification.service';
 import { CouponsService } from 'src/coupons/coupons.service';
+import { isRestaurantOpenForOrder } from 'src/restaurants/utils/restaurant-status.util';
 
 
 
@@ -34,6 +36,7 @@ export class CartService {
     @InjectRepository(Order) private orderRepo: Repository<Order>,
     @InjectRepository(RestaurantProfile) private restaurantProfileRepo: Repository<RestaurantProfile>,
     @InjectRepository(RestaurantDocument) private restaurantDocRepo: Repository<RestaurantDocument>,
+    @InjectRepository(Restaurant) private restaurantRepo: Repository<Restaurant>,
 
     private readonly deliveryLocationService: DeliveryLocationService,
     private readonly utilService: UtilService,
@@ -129,6 +132,14 @@ export class CartService {
 
 
   async addItem(user_uid: string, dto: AddToCartDto) {
+    const restaurant = await this.restaurantRepo.findOne({
+      where: { uid: dto.restaurant_uid },
+    });
+
+    if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
+      throw new ServiceUnavailableException('Restaurant is currently closed');
+    }
+
     let cart = await this.getCart(user_uid);
 
     if (!cart) {
@@ -506,6 +517,14 @@ export class CartService {
 
     if (!group) {
       throw new NotFoundException('Cart group not found');
+    }
+
+    const restaurant = await this.restaurantRepo.findOne({
+      where: { uid: group.restaurant_uid },
+    });
+
+    if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
+      throw new ServiceUnavailableException('Restaurant is currently closed');
     }
 
     if (!['COD', 'ONLINE'].includes(pay_mode)) {

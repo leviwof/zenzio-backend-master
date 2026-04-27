@@ -21,7 +21,7 @@ import {
 import { RegisterFleetDto } from './dto/registerFleet.dto';
 import { FirebaseAuthGuard } from 'src/guards/firebase-auth.guard';
 // import { JwtPayload } from 'src/shared/jwt.service';
-import { AccessTokenAuthGuard, JwtAuthGuard, RolesGuard } from 'src/guards';
+import { AccessTokenAuthGuard, JwtAuthGuard, RolesGuard, WorkHoursGuard } from 'src/guards';
 import { CreateFleetDto } from './dto/createFleet.dto';
 import { FleetsService } from './fleets.service';
 import { FleetLoginEmailDto, FleetLoginOtpDto } from './dto/login.dto';
@@ -225,12 +225,14 @@ export class FleetsController {
   }
 
   @Post('auth/login/email')
+  @UseGuards(WorkHoursGuard)
   @UsePipes(new ValidationPipe({ transform: true }))
   loginEmail(@Body() loginDto: FleetLoginEmailDto) {
     return this.fleetService.loginWithEmail(loginDto);
   }
 
   @Post('auth/login/otp')
+  @UseGuards(WorkHoursGuard)
   @UsePipes(new ValidationPipe({ transform: true }))
   loginOtp(@Body() loginDto: FleetLoginOtpDto) {
     return this.fleetService.loginwithOtp(loginDto);

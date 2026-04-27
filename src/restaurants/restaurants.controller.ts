@@ -289,7 +289,7 @@ export class RestaurantsController {
     };
   }
 
-  @Patch(':id/toggle-active')
+@Patch(':id/toggle-active')
   @RolesDecorator(RoleEnum.USER_RESTAURANT)
   
   async toggleRestaurantActive(@Param('id') id: string, @Req() req: AuthRequest) {
@@ -300,6 +300,17 @@ export class RestaurantsController {
     return this.restaurantService.toggleRestaurantActive(restaurantUid);
   }
 
+  @Patch(':id/toggle-off')
+  @RolesDecorator(RoleEnum.USER_RESTAURANT)
+  
+  async toggleRestaurantOff(@Param('id') id: string, @Req() req: AuthRequest) {
+    if (!id) {
+      throw new BadRequestException('Invalid user');
+    }
+    const restaurantUid = id;
+    return this.restaurantService.toggleRestaurantOff(restaurantUid);
+  }
+  
   
   
   
