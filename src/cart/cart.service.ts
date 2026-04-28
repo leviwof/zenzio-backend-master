@@ -134,6 +134,7 @@ export class CartService {
   async addItem(user_uid: string, dto: AddToCartDto) {
     const restaurant = await this.restaurantRepo.findOne({
       where: { uid: dto.restaurant_uid },
+      relations: ['operational_hours'],
     });
 
     if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
@@ -521,6 +522,7 @@ export class CartService {
 
     const restaurant = await this.restaurantRepo.findOne({
       where: { uid: group.restaurant_uid },
+      relations: ['operational_hours'],
     });
 
     if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
