@@ -33,8 +33,8 @@ function checkOperationalHours(hours: { day: string; enabled: boolean; from: str
 
   const todayHours = hours.find(
     (h) => {
-      const dayLower = h.day.toLowerCase();
-      return (dayLower === todayShort || dayLower === todayFull || dayLower === todayShort.slice(0, 3)) && h.enabled;
+      const dayLower = h.day?.toLowerCase();
+      return dayLower && (dayLower === todayShort || dayLower === todayFull || dayLower === todayShort.slice(0, 3)) && h.enabled;
     },
   );
 
@@ -44,7 +44,9 @@ function checkOperationalHours(hours: { day: string; enabled: boolean; from: str
     return false;
   }
 
-  return isTimeInRange(currentHour, todayHours.from, todayHours.to);
+  const inRange = isTimeInRange(currentHour, todayHours.from, todayHours.to);
+  console.log('DEBUG - In range:', inRange, 'current:', currentHour, 'from:', todayHours.from, 'to:', todayHours.to);
+  return inRange;
 }
 
 export function getRestaurantStatus(restaurant: {
