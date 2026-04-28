@@ -95,6 +95,22 @@ export class DeliveryHistory {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   distance_km: number;
 
+  // Real GPS tracking fields
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  last_lat: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  last_lng: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  trip_started_at: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  trip_ended_at: Date;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  total_distance_km: number;
+
   @Column({ type: 'int', nullable: true })
   estimated_time_min: number;
 

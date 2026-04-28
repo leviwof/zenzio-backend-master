@@ -40,12 +40,14 @@ import { ResetPasswordOtpDto } from './dto/reset-password-otp.dto';
 import { RolesDecorator } from 'src/auth/app.decorator';
 import { Roles as RoleEnum } from 'src/constants/app.enums';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { FleetDocument } from './entity/fleet-document.entity';
 import { Fleet } from './entity/fleet.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { Order } from 'src/orders/order.entity';
 import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
+import { DeliveryHistory, DeliveryStatus } from './entity/delivery_history.entity';
+import { DeliveryHistoryService } from './delivery-history.service';
 
 // interface AuthRequest extends Request {
 //   user?: {
@@ -67,6 +69,7 @@ export class FleetsController {
     @InjectRepository(RestaurantProfile)
     private readonly restaurantProfileRepository: Repository<RestaurantProfile>,
     private readonly redisService: RedisService,
+    private readonly deliveryHistoryService: DeliveryHistoryService,
   ) {}
 
   @Get('stats')
@@ -546,6 +549,8 @@ export class FleetsController {
     }
 
     const { lat, lng } = body;
+    
+    // Save to Redis for live tracking
     await this.redisService.set(
       `fleet:location:${req.user.uid}`,
       {
@@ -555,6 +560,28 @@ export class FleetsController {
       },
       300,
     ); // 5 mins heartbeat
+
+    // Update distance tracking for active deliveries
+    try {
+      const activeOrder = await this.orderRepository.findOne({
+        where: {
+          delivery_partner_uid: req.user.uid,
+          deliveryPartnerStatus: In(['accepted', 'picked_up', 'out_for_delivery', 'on_the_way_to_restaurant', 'on_the_way_to_customer']),
+        },
+      });
+
+      if (activeOrder) {
+        await this.deliveryHistoryService.updateLocation(
+          req.user.uid,
+          activeOrder.orderId,
+          lat,
+          lng,
+        );
+      }
+    } catch (error) {
+      // Silently fail - distance tracking shouldn't break heartbeat
+      console.error('Distance tracking error:', error);
+    }
 
     return { status: 'success' };
   }
@@ -751,6 +778,45 @@ export class FleetsController {
       meta: {
         totalActive: fleets.length,
         totalOnline: results.filter((r) => r.status === 'Online').length,
+      },
+    };
+  }
+
+  // ============================================================
+  // GET TOTAL DISTANCE FOR ACTIVE DELIVERY
+  // ============================================================
+  @Get('delivery-distance')
+  @RolesDecorator(RoleEnum.USER_FLEET)
+  @UseGuards(AccessTokenAuthGuard, RolesGuard)
+  async getDeliveryDistance(@Req() req: AuthRequest) {
+    if (!req.user?.uid) {
+      throw new BadRequestException('Invalid user');
+    }
+
+    const activeOrder = await this.orderRepository.findOne({
+      where: {
+        delivery_partner_uid: req.user.uid,
+        deliveryPartnerStatus: In(['accepted', 'picked_up', 'out_for_delivery', 'on_the_way_to_restaurant', 'on_the_way_to_customer']),
+      },
+    });
+
+    if (!activeOrder) {
+      return {
+        status: 'success',
+        data: { total_distance_km: 0, message: 'No active delivery' },
+      };
+    }
+
+    const history = await this.deliveryHistoryService.getDeliveryDetails(
+      req.user.uid,
+      activeOrder.orderId,
+    );
+
+    return {
+      status: 'success',
+      data: {
+        order_id: activeOrder.orderId,
+        total_distance_km: history.data?.total_distance_km || 0,
       },
     };
   }

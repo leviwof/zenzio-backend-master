@@ -5,6 +5,7 @@ import { DeliveryHistory, DeliveryStatus } from './entity/delivery_history.entit
 import { Order } from 'src/orders/order.entity';
 import { Fleet } from './entity/fleet.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { haversineDistance } from './utils/haversine.util';
 
 @Injectable()
 export class DeliveryHistoryService {
@@ -90,11 +91,13 @@ export class DeliveryHistoryService {
       delivery_otp: deliveryOtp,
       status: DeliveryStatus.ACCEPTED,
       accepted_at: new Date(),
+      trip_started_at: new Date(),
+      total_distance_km: 0,
       status_history: [
         {
           status: DeliveryStatus.ACCEPTED,
           timestamp: new Date().toISOString(),
-          notes: 'Order accepted by delivery partner',
+          notes: 'Order accepted by delivery partner - GPS tracking started',
         },
       ],
     });
@@ -281,6 +284,7 @@ export class DeliveryHistoryService {
 
     history.status = DeliveryStatus.DELIVERED;
     history.delivered_at = new Date();
+    history.trip_ended_at = new Date();
     history.delivery_notes = data.delivery_notes || history.delivery_notes;
     history.delivery_photo_url = data.delivery_photo_url || history.delivery_photo_url;
     history.tip_amount = data.tip_amount || 0;
@@ -299,13 +303,13 @@ export class DeliveryHistoryService {
       {
         status: DeliveryStatus.DELIVERED,
         timestamp: new Date().toISOString(),
-        notes: 'Delivery completed successfully',
+        notes: `Delivery completed. Total distance: ${history.total_distance_km.toFixed(2)} km`,
       },
     ];
 
     await this.deliveryHistoryRepo.save(history);
 
-    // Update order status
+    // Update Data in Orders Table as well
     await this.updateOrderStatus(order_id, DeliveryStatus.DELIVERED);
 
     return {
@@ -314,6 +318,83 @@ export class DeliveryHistoryService {
       message: 'Delivery completed successfully',
       data: history,
     };
+  }
+
+  // ==========================================================
+  // UPDATE LOCATION & ACCUMULATE DISTANCE (REAL GPS TRACKING)
+  // ==========================================================
+  async updateLocation(
+    fleet_uid: string,
+    order_id: string,
+    lat: number,
+    lng: number,
+  ): Promise<{ total_distance_km: number }> {
+    const history = await this.deliveryHistoryRepo.findOne({
+      where: { order_id, fleet_uid },
+    });
+
+    if (!history) {
+      throw new NotFoundException('Delivery history not found');
+    }
+
+    // Only track if trip is active (started but not ended)
+    if (!history.trip_started_at || history.trip_ended_at) {
+      return { total_distance_km: Number(history.total_distance_km) };
+    }
+
+    // Skip if status is DELIVERED or CANCELLED
+    if (
+      history.status === DeliveryStatus.DELIVERED ||
+      history.status === DeliveryStatus.CANCELLED
+    ) {
+      return { total_distance_km: Number(history.total_distance_km) };
+    }
+
+    // If this is first location update, just save and return
+    if (!history.last_lat || !history.last_lng) {
+      history.last_lat = lat;
+      history.last_lng = lng;
+      await this.deliveryHistoryRepo.save(history);
+      return { total_distance_km: Number(history.total_distance_km) };
+    }
+
+    // Calculate distance from last point
+    const distance = haversineDistance(
+      Number(history.last_lat),
+      Number(history.last_lng),
+      lat,
+      lng,
+    );
+
+    // Validation: Ignore movement < 10 meters (GPS noise)
+    if (distance < 0.01) {
+      return { total_distance_km: Number(history.total_distance_km) };
+    }
+
+    // Validation: Ignore jumps > 1 km in single update (fake data)
+    if (distance > 1) {
+      return { total_distance_km: Number(history.total_distance_km) };
+    }
+
+    // Accumulate distance
+    history.total_distance_km = Number(history.total_distance_km) + distance;
+    history.last_lat = lat;
+    history.last_lng = lng;
+    history.distance_km = Number(history.total_distance_km);
+
+    await this.deliveryHistoryRepo.save(history);
+
+    // Sync distance to orders table
+    try {
+      await this.orderRepo.update(
+        { orderId: order_id },
+        { distance_km: Number(history.total_distance_km) },
+      );
+    } catch (err) {
+      console.error('Failed to sync distance to order:', err);
+    }
+
+    return { total_distance_km: Number(history.total_distance_km) };
   }
 
   // ==========================================================
@@ -345,7 +426,8 @@ export class DeliveryHistoryService {
         items: history.items,
         status: history.status,
         otp_verified: history.otp_verified,
-        delivery_otp: history.delivery_otp, // Include OTP for customer verification
+        delivery_otp: history.delivery_otp,
+        total_distance_km: Number(history.total_distance_km) || 0,
       },
     };
   }
@@ -436,6 +518,8 @@ export class DeliveryHistoryService {
         todayEarnings,
         totalDeliveries: completedDeliveries.length,
         todayDeliveries: todayDeliveries.length,
+        totalDistanceKm: completedDeliveries.reduce((sum, d) => sum + Number(d.total_distance_km || 0), 0),
+        todayDistanceKm: todayDeliveries.reduce((sum, d) => sum + Number(d.total_distance_km || 0), 0),
         currency: '₹',
       },
     };
