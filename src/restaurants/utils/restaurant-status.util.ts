@@ -40,6 +40,7 @@ function checkOperationalHours(hours: { day: string; enabled: boolean; from: str
 
 export function getRestaurantStatus(restaurant: {
   isActive?: boolean;
+  isBlocked?: boolean;
   isManuallyOff?: boolean;
   operational_hours?: { day: string; enabled: boolean; from: string; to: string }[];
 }): RestaurantStatusResult {
@@ -49,20 +50,22 @@ export function getRestaurantStatus(restaurant: {
   const isTimeClosed = hour >= 23 || hour < 7;
 
   const isActive = restaurant.isActive ?? false;
-  const isManuallyOff = restaurant.isManuallyOff ?? false;
+  const isBlocked = restaurant.isBlocked ?? restaurant.isManuallyOff ?? false;
 
   let isOpen = false;
 
   if (!restaurant.operational_hours || restaurant.operational_hours.length === 0) {
-    isOpen = isActive && !isManuallyOff && !isTimeClosed;
+    isOpen = isActive && !isBlocked && !isTimeClosed;
   } else {
-    isOpen = isActive && !isManuallyOff && checkOperationalHours(restaurant.operational_hours);
+    isOpen = isActive && !isBlocked && checkOperationalHours(restaurant.operational_hours);
   }
 
   let statusLabel: 'ON' | 'OFF' | 'BLOCKED' = 'ON';
 
-  if (!isActive) {
+  if (isBlocked) {
     statusLabel = 'BLOCKED';
+  } else if (!isActive) {
+    statusLabel = 'OFF';
   } else if (!isOpen) {
     statusLabel = 'OFF';
   }
@@ -75,6 +78,7 @@ export function getRestaurantStatus(restaurant: {
 
 export function isRestaurantOpenForOrder(restaurant: {
   isActive?: boolean;
+  isBlocked?: boolean;
   isManuallyOff?: boolean;
   operational_hours?: { day: string; enabled: boolean; from: string; to: string }[];
 }): boolean {
