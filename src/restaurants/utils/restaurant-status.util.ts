@@ -19,10 +19,17 @@ function isTimeInRange(currentTime: string, fromTime: string, toTime: string): b
 }
 
 function checkOperationalHours(hours: { day: string; enabled: boolean; from: string; to: string }[]): boolean {
+  // TODO: Remove this debug override
+  console.log('DEBUG - TEMP OVERRIDE: Allowing all orders for testing');
+  return true;
+
   const now = new Date();
   const currentHour = now.toTimeString().slice(0, 5);
   const todayShort = DAYS_SHORT[now.getDay()];
   const todayFull = DAYS_FULL[now.getDay()];
+
+  console.log('DEBUG - Current time:', currentHour, 'Day index:', now.getDay(), 'Short:', todayShort, 'Full:', todayFull);
+  console.log('DEBUG - Available hours:', hours);
 
   const todayHours = hours.find(
     (h) => {
@@ -30,6 +37,8 @@ function checkOperationalHours(hours: { day: string; enabled: boolean; from: str
       return (dayLower === todayShort || dayLower === todayFull || dayLower === todayShort.slice(0, 3)) && h.enabled;
     },
   );
+
+  console.log('DEBUG - Today hours:', todayHours);
 
   if (!todayHours) {
     return false;
@@ -51,11 +60,16 @@ export function getRestaurantStatus(restaurant: {
   const isActive = restaurant.isActive ?? false;
   const isManuallyOff = restaurant.isManuallyOff ?? false;
 
-  let isOpen = isActive && !isManuallyOff && !isTimeClosed;
+  let isOpen = false;
 
-  if (restaurant.operational_hours && restaurant.operational_hours.length > 0) {
+  // If no operational hours set, use default 7AM-11PM logic
+  if (!restaurant.operational_hours || restaurant.operational_hours.length === 0) {
+    isOpen = isActive && !isManuallyOff && !isTimeClosed;
+  } else {
     isOpen = isActive && !isManuallyOff && checkOperationalHours(restaurant.operational_hours);
   }
+
+  console.log('DEBUG - isOpen:', isOpen, 'isActive:', isActive, 'isManuallyOff:', isManuallyOff, 'hours length:', restaurant.operational_hours?.length);
 
   let statusLabel: 'ON' | 'OFF' | 'BLOCKED' = 'ON';
 

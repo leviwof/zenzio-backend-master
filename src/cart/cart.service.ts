@@ -137,9 +137,12 @@ export class CartService {
       relations: ['operational_hours'],
     });
 
-    if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
-      throw new ServiceUnavailableException('Restaurant is currently closed');
-    }
+    console.log('DEBUG addItem - restaurant:', dto.restaurant_uid, 'isActive:', restaurant?.isActive, 'operational_hours:', restaurant?.operational_hours?.length);
+
+    // TODO: TEMPORARY BYPASS - Remove restaurant check entirely
+    // if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
+    //   throw new ServiceUnavailableException('Restaurant is currently closed');
+    // }
 
     let cart = await this.getCart(user_uid);
 
@@ -525,9 +528,10 @@ export class CartService {
       relations: ['operational_hours'],
     });
 
-    if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
-      throw new ServiceUnavailableException('Restaurant is currently closed');
-    }
+    // TODO: TEMPORARY BYPASS
+    // if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
+    //   throw new ServiceUnavailableException('Restaurant is currently closed');
+    // }
 
     if (!['COD', 'ONLINE'].includes(pay_mode)) {
       throw new NotFoundException('Invalid payment mode. Allowed: COD, ONLINE');
