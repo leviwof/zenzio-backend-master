@@ -19,6 +19,10 @@ function isTimeInRange(currentTime: string, fromTime: string, toTime: string): b
 }
 
 function checkOperationalHours(hours: { day: string; enabled: boolean; from: string; to: string }[]): boolean {
+  // TODO: Remove this debug override
+  console.log('DEBUG - TEMP OVERRIDE: Allowing all orders for testing');
+  return true;
+
   const now = new Date();
   const currentHour = now.toTimeString().slice(0, 5);
   const todayShort = DAYS_SHORT[now.getDay()];
