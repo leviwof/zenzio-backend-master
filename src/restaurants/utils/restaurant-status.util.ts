@@ -3,7 +3,8 @@ export interface RestaurantStatusResult {
   statusLabel: 'ON' | 'OFF' | 'BLOCKED';
 }
 
-const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const DAYS_SHORT = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const DAYS_FULL = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 function isTimeInRange(currentTime: string, fromTime: string, toTime: string): boolean {
   const current = parseInt(currentTime.replace(':', ''));
@@ -20,10 +21,14 @@ function isTimeInRange(currentTime: string, fromTime: string, toTime: string): b
 function checkOperationalHours(hours: { day: string; enabled: boolean; from: string; to: string }[]): boolean {
   const now = new Date();
   const currentHour = now.toTimeString().slice(0, 5);
-  const today = DAYS[now.getDay()];
+  const todayShort = DAYS_SHORT[now.getDay()];
+  const todayFull = DAYS_FULL[now.getDay()];
 
   const todayHours = hours.find(
-    (h) => h.day.toLowerCase() === today && h.enabled,
+    (h) => {
+      const dayLower = h.day.toLowerCase();
+      return (dayLower === todayShort || dayLower === todayFull || dayLower === todayShort.slice(0, 3)) && h.enabled;
+    },
   );
 
   if (!todayHours) {
