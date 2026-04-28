@@ -137,6 +137,8 @@ export class CartService {
       relations: ['operational_hours'],
     });
 
+    console.log('DEBUG addItem - restaurant:', dto.restaurant_uid, 'isActive:', restaurant?.isActive, 'operational_hours:', restaurant?.operational_hours?.length);
+
     if (restaurant && !isRestaurantOpenForOrder(restaurant)) {
       throw new ServiceUnavailableException('Restaurant is currently closed');
     }
