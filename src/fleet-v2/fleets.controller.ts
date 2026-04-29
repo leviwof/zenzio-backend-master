@@ -48,6 +48,7 @@ import { Order } from 'src/orders/order.entity';
 import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 import { DeliveryHistory, DeliveryStatus } from './entity/delivery_history.entity';
 import { DeliveryHistoryService } from './delivery-history.service';
+import { haversineDistance } from './utils/haversine.util';
 
 // interface AuthRequest extends Request {
 //   user?: {
@@ -76,7 +77,9 @@ export class FleetsController {
   async getPartnerStats() {
     const totalPartners = await this.fleetRepository.count();
     const activePartners = await this.fleetRepository.count({ where: { isActive: true } });
-    const onDutyPartners = await this.fleetRepository.count({ where: { status: true, isActive: true } });
+    const onDutyPartners = await this.fleetRepository.count({
+      where: { status: true, isActive: true },
+    });
     const pendingPartners = await this.fleetRepository
       .createQueryBuilder('fleet')
       .where('fleet.status = :status', { status: false })
@@ -549,7 +552,7 @@ export class FleetsController {
     }
 
     const { lat, lng } = body;
-    
+
     // Save to Redis for live tracking
     await this.redisService.set(
       `fleet:location:${req.user.uid}`,
@@ -566,7 +569,13 @@ export class FleetsController {
       const activeOrder = await this.orderRepository.findOne({
         where: {
           delivery_partner_uid: req.user.uid,
-          deliveryPartnerStatus: In(['accepted', 'picked_up', 'out_for_delivery', 'on_the_way_to_restaurant', 'on_the_way_to_customer']),
+          deliveryPartnerStatus: In([
+            'accepted',
+            'picked_up',
+            'out_for_delivery',
+            'on_the_way_to_restaurant',
+            'on_the_way_to_customer',
+          ]),
         },
       });
 
@@ -598,11 +607,60 @@ export class FleetsController {
       return Number.isFinite(parsed) ? parsed : null;
     };
 
-    const buildOrderDetails = (order: any, restaurant: any) => {
+    const getCoordinatePair = (
+      latValue: unknown,
+      lngValue: unknown,
+    ): { lat: number; lng: number } | null => {
+      let lat = toNumber(latValue);
+      let lng = toNumber(lngValue);
+
+      if (lat === null || lng === null) return null;
+
+      const looksGloballySwapped = Math.abs(lat) > 90 && Math.abs(lng) <= 90;
+      const looksIndiaSwapped = lat >= 68 && lat <= 98 && lng >= 6 && lng <= 38;
+
+      if (looksGloballySwapped || looksIndiaSwapped) {
+        const originalLat = lat;
+        lat = lng;
+        lng = originalLat;
+      }
+
+      const inRange = lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+      if (!inRange || lat === 0 || lng === 0) return null;
+
+      return { lat, lng };
+    };
+
+    const calculateRouteDistance = (
+      partnerLat: unknown,
+      partnerLng: unknown,
+      order: any,
+    ): number | null => {
+      const partner = getCoordinatePair(partnerLat, partnerLng);
+      const restaurant = getCoordinatePair(order.restaurant_lat, order.restaurant_lng);
+      const customer = getCoordinatePair(order.customer_lat, order.customer_lng);
+
+      if (!partner || !restaurant || !customer) {
+        return null;
+      }
+
+      const d1 = haversineDistance(partner.lat, partner.lng, restaurant.lat, restaurant.lng);
+      const d2 = haversineDistance(restaurant.lat, restaurant.lng, customer.lat, customer.lng);
+
+      return Number((d1 + d2).toFixed(2));
+    };
+
+    const buildOrderDetails = (
+      order: any,
+      restaurant: any,
+      partnerLat?: number | null,
+      partnerLng?: number | null,
+    ) => {
       const deliveryLat = toNumber(order.delivery_lat);
       const deliveryLng = toNumber(order.delivery_lng);
       const customerLat = toNumber(order.customer_lat);
       const customerLng = toNumber(order.customer_lng);
+      const totalDistance = calculateRouteDistance(partnerLat, partnerLng, order);
       const hasDeliveryCoordinates =
         deliveryLat !== null && deliveryLng !== null && !(deliveryLat === 0 && deliveryLng === 0);
       const hasCustomerCoordinates =
@@ -651,9 +709,18 @@ export class FleetsController {
         deliveryStatus: order.deliveryPartnerStatus,
         restaurantFoodType: restaurant?.food_type || 'non_veg',
         isDelivered: order.deliveryPartnerStatus === 'delivered',
+        totalDistance,
         deliveredLocationAddress: order.delivery_address || null,
-        deliveredLocationLat: hasDeliveryCoordinates ? deliveryLat : hasCustomerCoordinates ? customerLat : null,
-        deliveredLocationLng: hasDeliveryCoordinates ? deliveryLng : hasCustomerCoordinates ? customerLng : null,
+        deliveredLocationLat: hasDeliveryCoordinates
+          ? deliveryLat
+          : hasCustomerCoordinates
+            ? customerLat
+            : null,
+        deliveredLocationLng: hasDeliveryCoordinates
+          ? deliveryLng
+          : hasCustomerCoordinates
+            ? customerLng
+            : null,
         deliveredLocationSource: hasDeliveryCoordinates
           ? 'last_partner_location'
           : hasCustomerCoordinates
@@ -703,7 +770,9 @@ export class FleetsController {
     }
 
     const selectedOrders = [...orderMap.values()];
-    const restaurantUids = [...new Set(selectedOrders.map((o) => o.restaurant_uid).filter(Boolean))];
+    const restaurantUids = [
+      ...new Set(selectedOrders.map((o) => o.restaurant_uid).filter(Boolean)),
+    ];
     const restaurantProfiles = await this.restaurantProfileRepository.find({
       where: restaurantUids.map((uid) => ({ restaurantUid: uid })) as any,
     });
@@ -748,7 +817,9 @@ export class FleetsController {
       let orderDetails: any = null;
       if (order) {
         const restaurant = restaurantMap.get(order.restaurant_uid);
-        orderDetails = buildOrderDetails(order, restaurant);
+        const distancePartnerLat = hasRedisLocation ? redisLat : hasOrderLocation ? orderLat : null;
+        const distancePartnerLng = hasRedisLocation ? redisLng : hasOrderLocation ? orderLng : null;
+        orderDetails = buildOrderDetails(order, restaurant, distancePartnerLat, distancePartnerLng);
       }
 
       results.push({
@@ -796,7 +867,13 @@ export class FleetsController {
     const activeOrder = await this.orderRepository.findOne({
       where: {
         delivery_partner_uid: req.user.uid,
-        deliveryPartnerStatus: In(['accepted', 'picked_up', 'out_for_delivery', 'on_the_way_to_restaurant', 'on_the_way_to_customer']),
+        deliveryPartnerStatus: In([
+          'accepted',
+          'picked_up',
+          'out_for_delivery',
+          'on_the_way_to_restaurant',
+          'on_the_way_to_customer',
+        ]),
       },
     });
 

@@ -24,6 +24,10 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS restaurant_lng DECIMAL(10, 7);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_lat DECIMAL(10, 7);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_lng DECIMAL(10, 7);
 
+-- Add partner (delivery partner) coordinates columns
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_lat DECIMAL(10, 7);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_lng DECIMAL(10, 7);
+
 -- Add distance_km column
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS distance_km FLOAT;
 
