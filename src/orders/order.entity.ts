@@ -99,6 +99,13 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   delivery_lng: number;
 
+  // ✅ NEW: Partner (Delivery Partner) base coordinates for distance calculation
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  partner_lat: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  partner_lng: number;
+
   // ✅ NEW: Payment mode (cod/online)
   @Column({ nullable: true })
   payment_mode: string;
