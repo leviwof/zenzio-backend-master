@@ -144,37 +144,18 @@ export class AttendanceService {
         if (lastEvent !== AttendanceEventType.BREAK_START)
           throw new BadRequestException('No break to end.');
 
-        // Break validation against shift config
+        // Calculate and store break duration (tracking only, no restriction)
         const breakStartEvent = events.find(e => e.type === AttendanceEventType.BREAK_START);
         if (breakStartEvent) {
           const breakStartTime = new Date(breakStartEvent.time).getTime();
           const breakEndTime = new Date(this.formatIST(nowIST)).getTime();
           const breakDurationMinutes = Math.round((breakEndTime - breakStartTime) / 60000);
 
-          const fleetForBreakValidation = await this.fleetRepo.findOne({
-            where: { uid: fleet_uid },
-          });
+          // Store break duration in the event for tracking
+          (dto as any).breakDurationMinutes = breakDurationMinutes;
 
-          if (fleetForBreakValidation?.shift_id) {
-            const shift = getShiftById(fleetForBreakValidation.shift_id);
-            if (shift) {
-              if (shift.breakType === 'CONTINUOUS') {
-                // Full time shifts require exactly 2 hours continuous break
-                if (breakDurationMinutes !== shift.breakMinutes) {
-                  throw new BadRequestException(
-                    `Full time shift requires exactly ${shift.breakMinutes} minutes continuous break. You took ${breakDurationMinutes} minutes.`,
-                  );
-                }
-              } else {
-                // Standard shifts allow max 30 mins total break
-                if (breakDurationMinutes > shift.breakMinutes) {
-                  throw new BadRequestException(
-                    `Maximum ${shift.breakMinutes} minutes break allowed. You took ${breakDurationMinutes} minutes.`,
-                  );
-                }
-              }
-            }
-          }
+          // Break time is calculated and will be stored - no duration restriction enforced
+          console.log(`Break time recorded: ${breakDurationMinutes} minutes`);
         }
         break;
     }
@@ -184,8 +165,13 @@ export class AttendanceService {
     
     const event: AttendanceEventLog = {
       type: dto.event_type,
-      time: this.formatIST(nowIST), 
+      time: this.formatIST(nowIST),
     };
+
+    // Add break duration to event if available
+    if (dto.event_type === AttendanceEventType.BREAK_END && (dto as any).breakDurationMinutes !== undefined) {
+      (event as any).breakDurationMinutes = (dto as any).breakDurationMinutes;
+    }
 
     events.push(event);
     await this.attendanceRepo.save(row);
@@ -211,7 +197,14 @@ export class AttendanceService {
       },
     );
 
-    return row;
+    // Return response with break time if applicable
+    const response: any = { ...row };
+    if (dto.event_type === AttendanceEventType.BREAK_END && (dto as any).breakDurationMinutes !== undefined) {
+      response.breakTime = (dto as any).breakDurationMinutes;
+      response.message = 'Break time recorded';
+    }
+
+    return response;
   }
 
   
