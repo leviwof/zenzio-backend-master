@@ -97,6 +97,19 @@ export class OrdersService implements OnModuleInit {
     return Math.max(0, gross - refundedAmount);
   }
 
+  calculateDeliveryCharge(distanceKm: number): number {
+    if (distanceKm == null || typeof distanceKm !== 'number' || isNaN(distanceKm)) {
+      throw new BadRequestException('Distance is required and must be a valid number');
+    }
+    if (distanceKm <= 0) {
+      throw new BadRequestException('Distance must be greater than 0');
+    }
+    if (distanceKm <= 5) {
+      return 25;
+    }
+    return 25 + Math.ceil(distanceKm - 5) * 5;
+  }
+
   private isValidRevenueOrder(order: Order): boolean {
     const status = order.restaurantStatus?.toLowerCase();
     const deliveryStatus = order.deliveryPartnerStatus?.toLowerCase();
@@ -506,7 +519,13 @@ export class OrdersService implements OnModuleInit {
     const rawItemTotal = dto.item_total ?? this.calculatePrice(dto.items);
     const itemTotal = Number(rawItemTotal.toFixed(2));
 
-    const deliveryFee = Number((dto.delivery_fee ?? 0).toFixed(2));
+    // Calculate delivery charge server-side if distance_km is provided
+    let deliveryFee: number;
+    if (dto.distance_km != null && typeof dto.distance_km === 'number' && !isNaN(dto.distance_km)) {
+      deliveryFee = this.calculateDeliveryCharge(dto.distance_km);
+    } else {
+      deliveryFee = Number((dto.delivery_fee ?? 0).toFixed(2));
+    }
 
     // Fetch packaging charge and GST status from restaurant
     const restaurantProfile = await this.restaurantProfileRepo.findOne({
@@ -1602,13 +1621,14 @@ export class OrdersService implements OnModuleInit {
       items: order.items || [],
       priceSummary: {
         subtotal: itemTotal,
-        tax: taxes,
+        deliveryCharge: deliveryCharge,
         deliveryFee: deliveryCharge,
         packingCharge: packingCharge,
         adminEarnings: adminEarnings,
         discount: Number(order.coupon_discount) || 0,
         total: grandTotal,
       },
+      distanceKm: order.distance_km,
       customerInformation: {
         name: customerDetails.name,
         customerId: customerDetails.customerId,
