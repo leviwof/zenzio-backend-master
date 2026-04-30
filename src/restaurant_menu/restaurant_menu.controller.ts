@@ -50,7 +50,7 @@ import { RestaurantMenu } from './restaurant_menu.entity';
 import { AuthRequest, RequestWithUser } from 'src/types/auth-request';
 import { GetNearestMenusDto } from './dto/get-nearest-menus.dto';
 import { GlobalSettingsService } from 'src/global-settings/global-settings.service';
-import { calculateFinalPrice, getPlatformFeePercent } from 'src/utils/price.util';
+import { calculateFinalPrice, getPlatformFeePercent, roundPrice } from 'src/utils/price.util';
 
 export interface AuthUser {
   uid: string;
@@ -309,8 +309,9 @@ export class Restaurant_menuController {
       });
       return {
         ...item,
+        price: roundPrice(item.price),
         basePrice: priceData.basePrice,
-        finalPrice: priceData.finalPrice,
+        finalPrice: roundPrice(priceData.finalPrice),
       };
     });
 
@@ -447,8 +448,9 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       });
       return {
         ...item,
+        price: roundPrice(item.price),
         basePrice: priceData.basePrice,
-        finalPrice: priceData.finalPrice,
+        finalPrice: roundPrice(priceData.finalPrice),
       };
     });
 
@@ -471,6 +473,7 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       },
     };
   }
+
 
   @Get('nearest')
   async findNearestMenus(
@@ -498,8 +501,9 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       });
       return {
         ...item,
+        price: roundPrice(item.price),
         basePrice: priceData.basePrice,
-        finalPrice: priceData.finalPrice,
+        finalPrice: roundPrice(priceData.finalPrice),
       };
     });
 
@@ -516,6 +520,7 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       },
     };
   }
+
 
   @Post('nearest')
   @ApiOperation({ summary: 'Fetch nearest menu items with advanced filtering' })
@@ -548,8 +553,9 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       });
       return {
         ...item,
+        price: roundPrice(item.price),
         basePrice: priceData.basePrice,
-        finalPrice: priceData.finalPrice,
+        finalPrice: roundPrice(priceData.finalPrice),
       };
     });
 
@@ -609,8 +615,9 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       });
       return {
         ...item,
+        price: roundPrice(item.price),
         basePrice: priceData.basePrice,
-        finalPrice: priceData.finalPrice,
+        finalPrice: roundPrice(priceData.finalPrice),
       };
     });
 
@@ -627,6 +634,7 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       },
     };
   }
+
 
   @Get('by-restaurant')
   @ApiOperation({ summary: 'Fetch menus by restaurant UID' })
@@ -665,8 +673,9 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       });
       return {
         ...item,
+        price: roundPrice(item.price),
         basePrice: priceData.basePrice,
-        finalPrice: priceData.finalPrice,
+        finalPrice: roundPrice(priceData.finalPrice),
       };
     });
 
@@ -683,8 +692,6 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       },
     };
   }
-
-
 
 
   @Get('by-restaurant-category')
@@ -721,8 +728,9 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       });
       return {
         ...item,
+        price: roundPrice(item.price),
         basePrice: priceData.basePrice,
-        finalPrice: priceData.finalPrice,
+        finalPrice: roundPrice(priceData.finalPrice),
       };
     });
 
@@ -739,23 +747,6 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
       },
     };
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

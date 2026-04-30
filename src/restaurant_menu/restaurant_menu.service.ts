@@ -17,6 +17,7 @@ import {
 
 } from './utils/menu-status.utils';
 import { RestaurantMenuUpdateDto } from './dto/restaurant_menu-update.dto';
+import { roundPrice } from 'src/utils/price.util';
 
 @Injectable()
 export class RestaurantMenuService {
@@ -421,7 +422,7 @@ export class RestaurantMenuService {
       menu_name: String(r.menu_name),
       category: r.category ? String(r.category) : null,
       description: r.description ? String(r.description) : null,
-      price: Number(r.price),
+      price: roundPrice(Number(r.price)),
       food_type: r.food_type ? String(r.food_type) : null,
       cuisine_type: r.cuisine_type ? String(r.cuisine_type) : null,
       contain_allergence: Boolean(r.contain_allergence),
