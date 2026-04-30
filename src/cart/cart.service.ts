@@ -22,6 +22,7 @@ import { RazorpayService } from 'src/payments/razorpay.service';
 import { NotificationService } from 'src/notifications/notification.service';
 import { CouponsService } from 'src/coupons/coupons.service';
 import { isRestaurantOpenForOrder } from 'src/restaurants/utils/restaurant-status.util';
+import { OrdersService } from 'src/orders/orders.service';
 
 
 
@@ -34,8 +35,10 @@ export class CartService {
     @InjectRepository(CartItem) private itemRepo: Repository<CartItem>,
     @InjectRepository(CartItem) private menuRepo: Repository<RestaurantMenu>,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
-    @InjectRepository(RestaurantProfile) private restaurantProfileRepo: Repository<RestaurantProfile>,
-    @InjectRepository(RestaurantDocument) private restaurantDocRepo: Repository<RestaurantDocument>,
+    @InjectRepository(RestaurantProfile)
+    private restaurantProfileRepo: Repository<RestaurantProfile>,
+    @InjectRepository(RestaurantDocument)
+    private restaurantDocRepo: Repository<RestaurantDocument>,
     @InjectRepository(Restaurant) private restaurantRepo: Repository<Restaurant>,
 
     private readonly deliveryLocationService: DeliveryLocationService,
@@ -43,7 +46,8 @@ export class CartService {
     private readonly razorpayService: RazorpayService,
     private readonly notificationService: NotificationService,
     private readonly couponsService: CouponsService,
-  ) { }
+    private readonly ordersService: OrdersService,
+  ) {}
 
 
 
@@ -561,7 +565,13 @@ export class CartService {
     }));
 
     const itemTotal = dto.item_total ?? group.subtotal;
-    const deliveryFee = dto.delivery_fee ?? 0;
+    // Calculate delivery charge server-side if distance_km is provided
+    let deliveryFee: number;
+    if (dto.distance_km != null && typeof dto.distance_km === 'number' && !isNaN(dto.distance_km)) {
+      deliveryFee = this.ordersService.calculateDeliveryCharge(dto.distance_km);
+    } else {
+      deliveryFee = dto.delivery_fee ?? 0;
+    }
     const couponDiscount = dto.coupon_discount ?? 0;
 
     // Fetch packaging charge and GST status from restaurant
