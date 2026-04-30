@@ -11,7 +11,6 @@ import { CartItem } from './entity/cart-item.entity';
 
 
 
-
 import { JwtServiceShared } from 'src/shared/jwt.service';
 import { UtilService } from 'src/utils/util.service';
 import { CartStatusController } from './cart-status.controller';
@@ -38,6 +37,7 @@ import { DeliveryLocation } from 'src/delivery-location/delivery_location.entity
 import { PaymentsModule } from 'src/payments/payments.module';
 import { NotificationModule } from 'src/notifications/notification.module';
 import { CouponsModule } from 'src/coupons/coupons.module';
+import { OrdersModule } from 'src/orders/orders.module';
 
 @Module({
   imports: [
@@ -57,6 +57,7 @@ import { CouponsModule } from 'src/coupons/coupons.module';
     PaymentsModule,
     NotificationModule,
     CouponsModule,
+    OrdersModule,
   ],
   controllers: [
     CartController,
