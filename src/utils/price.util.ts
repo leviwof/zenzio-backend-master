@@ -43,6 +43,11 @@ export function calculateFinalPrice({
   };
 }
 
+export function roundPrice(price: number): number {
+  if (price == null || isNaN(price)) return 0;
+  return Math.round(price);
+}
+
 export function resetPlatformFeeCache(): void {
   platformFeePercentCache = null;
 }

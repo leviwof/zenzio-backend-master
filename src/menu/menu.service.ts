@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Menu } from './menu.entity';
 import { UpdateMenuStatusDto, BulkUpdateStatusDto, BulkDeleteDto } from './dto/menu-status.dto';
+import { roundPrice } from 'src/utils/price.util';
 
 @Injectable()
 export class MenuService {
@@ -18,10 +19,14 @@ export class MenuService {
   }
 
   async findAll() {
-    return this.menuRepo.find({
+    const items = await this.menuRepo.find({
       where: { deletedAt: null as any },
       order: { createdAt: 'DESC' },
     });
+    return items.map(item => ({
+      ...item,
+      price: roundPrice(item.price),
+    }));
   }
 
   async findOne(id: string) {
