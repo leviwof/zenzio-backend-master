@@ -515,6 +515,11 @@ export class RestaurantMenuService {
     return result.affected !== 0;
   }
 
+  async softDeleteByUid(menu_uid: string): Promise<boolean> {
+    const result = await this.menuRepository.softDelete({ menu_uid });
+    return result.affected !== 0;
+  }
+
   async activateMenu(id: number): Promise<boolean> {
     return await setMenuStatus(this.menuRepository, id, true);
   }
