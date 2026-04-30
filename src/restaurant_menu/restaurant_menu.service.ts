@@ -302,11 +302,12 @@ export class RestaurantMenuService {
 
 
   async findAllWithPagination(page: number, limit: number): Promise<[RestaurantMenu[], number]> {
-    const skip = (page - 1) * limit;
+    const skip = (page -1) * limit;
 
     return await this.menuRepository.findAndCount({
       skip,
       take: limit,
+      withDeleted: false,
       order: {
         createdAt: 'DESC' as FindOptionsOrderValue,
       },
@@ -351,6 +352,7 @@ export class RestaurantMenuService {
       where,
       skip,
       take: limit,
+      withDeleted: false,
       order: { createdAt: 'DESC' },
     });
   }
@@ -464,7 +466,6 @@ export class RestaurantMenuService {
   ): Promise<[RestaurantMenu[], number]> {
     const where: any = { restaurant_uid };
 
-
     if (!includeInactive) {
       where.isActive = true;
     }
@@ -473,17 +474,17 @@ export class RestaurantMenuService {
       where,
       skip: (page - 1) * limit,
       take: limit,
+      withDeleted: false,
       order: { createdAt: 'DESC' },
     });
   }
 
-
   async findOne(id: number): Promise<RestaurantMenu | null> {
-    return await this.menuRepository.findOne({ where: { id } });
+    return await this.menuRepository.findOne({ where: { id }, withDeleted: false });
   }
 
   async findOneByUid(menu_uid: string): Promise<RestaurantMenu | null> {
-    return await this.menuRepository.findOne({ where: { menu_uid } });
+    return await this.menuRepository.findOne({ where: { menu_uid }, withDeleted: false });
   }
 
 
@@ -545,7 +546,7 @@ export class RestaurantMenuService {
   }
 
   async updateByUid(menu_uid: string, updateMenuDto: RestaurantMenuUpdateDto): Promise<boolean> {
-    const existing = await this.menuRepository.findOne({ where: { menu_uid } });
+    const existing = await this.menuRepository.findOne({ where: { menu_uid }, withDeleted: false });
 
     if (!existing) {
       return false;
@@ -599,23 +600,13 @@ export class RestaurantMenuService {
 
 
   async findMenusByRestaurantAndCategory(restaurant_uid: string, category: string, page: number, limit: number) {
-    const skip = (page - 1) * limit;
-    let where: any;
-
-    if (category === 'Other') {
-      // Look for both NULL and Empty String
-      where = [
-        { restaurant_uid, category: IsNull(), isActive: true },
-        { restaurant_uid, category: '', isActive: true }
-      ];
-    } else {
-      where = { restaurant_uid, category, isActive: true };
-    }
+    const skip = (page -1) * limit;
 
     return await this.menuRepository.findAndCount({
-      where,
+      where: { restaurant_uid, category },
       skip,
       take: limit,
+      withDeleted: false,
       order: { createdAt: 'DESC' },
     });
   }
