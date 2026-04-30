@@ -902,6 +902,28 @@ Ice Cream,99,15,Chocolate ice cream,Desserts,Veg,Continental,true`;
   }
 
 
+  @Delete(':menu_uid/soft')
+  @ApiOperation({ summary: 'Soft delete a restaurant menu item by UID' })
+  @ApiParam({ name: 'menu_uid', example: 'MNU-ABC1234', description: 'Restaurant menu UID' })
+  @ApiResponse({ status: 200, description: 'Menu soft deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Menu not found' })
+  async softDeleteByUid(@Param('menu_uid') menu_uid: string) {
+    const softDeleted = await this.restaurant_menuService.softDeleteByUid(menu_uid);
+    return softDeleted
+      ? {
+        status: 'success',
+        code: 200,
+        message: 'Restaurant menu soft deleted successfully',
+        meta: { timestamp: new Date().toISOString() },
+      }
+      : {
+        status: 'error',
+        code: 404,
+        message: 'Restaurant menu not found',
+        meta: { timestamp: new Date().toISOString() },
+      };
+  }
+
   @Delete(':id/soft')
   @ApiOperation({ summary: 'Soft delete a restaurant menu item by ID' })
   @ApiParam({ name: 'id', example: 1, description: 'Restaurant menu ID' })
