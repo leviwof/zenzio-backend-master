@@ -40,6 +40,7 @@
     "@nestjs/swagger": "^11.2.1",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.8",
+    "@turf/turf": "^7.3.5",
     "@types/node": "^22.10.7",
     "argon2": "^0.43.0",
     "axios": "^1.13.1",

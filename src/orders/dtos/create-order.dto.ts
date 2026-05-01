@@ -5,6 +5,8 @@ import {
   IsOptional,
   IsString,
   ValidateNested,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrderItemDto } from './order-item.dto';
@@ -60,10 +62,14 @@ export class CreateOrderDto {
 
   // ✅ NEW: Customer coordinates
   @IsNumber()
+  @Min(-90)
+  @Max(90)
   @IsOptional()
   customer_lat?: number;
 
   @IsNumber()
+  @Min(-180)
+  @Max(180)
   @IsOptional()
   customer_lng?: number;
 

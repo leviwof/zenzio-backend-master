@@ -14,6 +14,7 @@ import { RestaurantDocument } from 'src/restaurants/entity/restaurant_document.e
 import { RedisModule } from 'src/redis/redis.module';
 import { FileModule } from 'src/file/file.module';
 import { ReferralModule } from 'src/referral/referral.module';
+import { DeliveryZoneModule } from 'src/delivery-zone/delivery-zone.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ReferralModule } from 'src/referral/referral.module';
     RedisModule,
     FileModule,
     ReferralModule,
+    DeliveryZoneModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, JwtServiceShared, UtilService],
