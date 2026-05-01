@@ -16,6 +16,7 @@ import { MulterFile } from 'src/types/multer-file.type';
 import { RestaurantProfile } from 'src/restaurants/entity/restaurant_profile.entity';
 import { RestaurantDocument } from 'src/restaurants/entity/restaurant_document.entity';
 import { ReferralService } from 'src/referral/referral.service';
+import { DeliveryZoneService } from 'src/delivery-zone/delivery-zone.service';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -32,6 +33,7 @@ export class OrdersService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly fileService: FileService,
     private readonly referralService: ReferralService,
+    private readonly deliveryZoneService: DeliveryZoneService,
   ) {}
 
   async onModuleInit() {
@@ -514,6 +516,19 @@ export class OrdersService implements OnModuleInit {
   async create(dto: CreateOrderDto) {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Order must contain at least one item');
+    }
+
+    // Delivery zone validation
+    if (dto.customer_lat != null && dto.customer_lng != null) {
+      const isAllowed = this.deliveryZoneService.isDeliveryAllowed(
+        dto.customer_lat,
+        dto.customer_lng,
+      );
+      if (!isAllowed) {
+        throw new BadRequestException(
+          'Delivery is not available for your location. We currently deliver within the Puducherry zone only.',
+        );
+      }
     }
 
     const rawItemTotal = dto.item_total ?? this.calculatePrice(dto.items);
