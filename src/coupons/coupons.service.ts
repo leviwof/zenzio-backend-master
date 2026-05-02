@@ -79,8 +79,21 @@ export class CouponsService {
         const usageLimitPerUser = coupon.usageLimitPerUser || Infinity;
 
         // Base checks
-        const todayDateStr = now.toISOString().split('T')[0];
-        const isDateValid = !coupon.endDate || todayDateStr <= String(coupon.endDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let isDateValid = true;
+        if (coupon.startDate) {
+          const startDate = new Date(coupon.startDate);
+          startDate.setHours(0, 0, 0, 0);
+          if (today < startDate) isDateValid = false;
+        }
+        if (coupon.endDate) {
+          const endDate = new Date(coupon.endDate);
+          endDate.setHours(0, 0, 0, 0);
+          if (today > endDate) isDateValid = false;
+        }
+
         const isStatusValid = coupon.status === 'Active';
         const isGlobalLimitValid =
           !coupon.usageLimit || coupon.redemptionCount < coupon.usageLimit;
@@ -138,10 +151,27 @@ export class CouponsService {
     if (!coupon) throw new NotFoundException('Coupon not found');
 
     if (coupon.status !== CouponStatus.ACTIVE) throw new ConflictException('Coupon is not active');
-    const todayDateStr = new Date().toISOString().split('T')[0];
-    if (coupon.endDate && todayDateStr > String(coupon.endDate))
-      throw new ConflictException('Coupon has expired');
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (coupon.startDate) {
+      const startDate = new Date(coupon.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      if (today < startDate) {
+        throw new ConflictException('Coupon is not yet active');
+      }
+    }
+
+    if (coupon.endDate) {
+      const endDate = new Date(coupon.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      if (today > endDate) {
+        throw new ConflictException('Coupon has expired');
+      }
+    }
+
+    // Check if adding one more redemption would exceed the limit
     if (coupon.usageLimit && coupon.redemptionCount >= coupon.usageLimit) {
       throw new ConflictException('Coupon usage limit reached');
     }
@@ -223,18 +253,23 @@ export class CouponsService {
   }
 
   async redeemCoupon(code: string): Promise<void> {
-    const coupon = await this.couponsRepository.findOne({ where: { code } });
-    if (!coupon) return;
+    // Atomic update: increment only if usageLimit not reached
+    const result = await this.couponsRepository
+      .createQueryBuilder()
+      .update(Coupon)
+      .set({
+        redemptionCount: () => 'redemptionCount + 1',
+        status: () => `CASE WHEN (redemptionCount + 1) >= usageLimit AND usageLimit IS NOT NULL THEN '${CouponStatus.INACTIVE}' ELSE status END`,
+      })
+      .where({ code })
+      .andWhere('(usageLimit IS NULL OR redemptionCount < usageLimit)')
+      .execute();
 
-
-    coupon.redemptionCount = (Number(coupon.redemptionCount) || 0) + 1;
-
-
-    if (coupon.usageLimit && coupon.redemptionCount >= coupon.usageLimit) {
-      coupon.status = CouponStatus.INACTIVE;
+    if (result.affected === 0) {
+      console.log(`⚠️ Coupon ${code} redemption skipped - usage limit reached or coupon not found.`);
+    } else {
+      const updated = await this.couponsRepository.findOne({ where: { code } });
+      console.log(`✅ Coupon ${code} redeemed. New count: ${updated?.redemptionCount}`);
     }
-
-    await this.couponsRepository.save(coupon);
-    console.log(`✅ Coupon ${code} redeemed. New count: ${coupon.redemptionCount}`);
   }
 }
