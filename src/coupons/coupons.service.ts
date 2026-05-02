@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
-import { Coupon, CouponStatus } from './coupon.entity';
+import { Repository } from 'typeorm';
+import { Coupon, CouponStatus, DiscountType } from './coupon.entity';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { Order } from 'src/orders/order.entity';
@@ -10,11 +10,13 @@ import { CouponValidationResponseDto } from './dto/coupon-validation-response.dt
 export type ValidationFailureReason =
   | 'EXPIRED'
   | 'INACTIVE'
-  | 'ALREADY_USED'
+  | 'MIN_ORDER_NOT_MET'
+  | 'USER_LIMIT_REACHED'
+  | 'LIMIT_REACHED'
   | 'NOT_ELIGIBLE'
-  | 'USAGE_LIMIT_REACHED'
   | 'NOT_YET_ACTIVE'
-  | 'NOT_AUTHORIZED';
+  | 'NOT_AUTHORIZED'
+  | 'NOT_FOUND';
 
 @Injectable()
 export class CouponsService {
@@ -25,7 +27,7 @@ export class CouponsService {
     private couponsRepository: Repository<Coupon>,
     @InjectRepository(Order)
     private orderRepository: Repository<Order>,
-  ) { }
+  ) {}
 
   async create(createCouponDto: CreateCouponDto): Promise<Coupon> {
     const existing = await this.couponsRepository.findOne({
@@ -39,22 +41,41 @@ export class CouponsService {
     return this.couponsRepository.save(coupon);
   }
 
-  private getUTCDateString(date: Date | string | null): string | null {
+  private getUTCDate(date: Date | string | null): Date | null {
     if (!date) return null;
-    return new Date(date).toISOString().split('T')[0];
+    return new Date(new Date(date).toISOString());
   }
 
-  private getCurrentUTCDateString(): string {
-    return new Date().toISOString().split('T')[0];
+  private getCurrentUTCDate(): Date {
+    return new Date(new Date().toISOString());
   }
 
-  async findAll(search?: string, status?: string, user_uid?: string, isAdmin: boolean = false): Promise<any[]> {
+  private calculateDiscount(coupon: Coupon, orderAmount: number): number {
+    let discount = 0;
+    if (coupon.discountType === DiscountType.PERCENTAGE) {
+      discount = (orderAmount * Number(coupon.discountValue)) / 100;
+    } else {
+      discount = Number(coupon.discountValue);
+    }
+    if (coupon.maxDiscountCap) {
+      discount = Math.min(discount, Number(coupon.maxDiscountCap));
+    }
+    return Number(discount.toFixed(2));
+  }
+
+  async findAll(
+    search?: string,
+    status?: string,
+    user_uid?: string,
+    isAdmin: boolean = false,
+  ): Promise<any[]> {
     const queryBuilder = this.couponsRepository.createQueryBuilder('coupon');
 
     if (search) {
-      queryBuilder.andWhere('(coupon.code ILIKE :search OR coupon.name ILIKE :search)', {
-        search: `%${search}%`,
-      });
+      queryBuilder.andWhere(
+        '(coupon.code ILIKE :search OR coupon.name ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
     if (status) {
@@ -72,7 +93,9 @@ export class CouponsService {
       );
 
       if (!isAdmin) {
-        queryBuilder.andWhere('coupon.status = :activeStatus', { activeStatus: CouponStatus.ACTIVE });
+        queryBuilder.andWhere('coupon.status = :activeStatus', {
+          activeStatus: CouponStatus.ACTIVE,
+        });
       }
     } else {
       queryBuilder.andWhere('coupon.source IS NULL');
@@ -83,7 +106,7 @@ export class CouponsService {
 
     if (user_uid) {
       const results: any[] = [];
-      const nowStr = this.getCurrentUTCDateString();
+      const now = this.getCurrentUTCDate();
 
       for (const coupon of coupons) {
         const usageCount = await this.orderRepository.count({
@@ -96,14 +119,11 @@ export class CouponsService {
         const usageLimitPerUser = coupon.usageLimitPerUser || Infinity;
 
         let isDateValid = true;
-        if (coupon.startDate) {
-          const startDateStr = this.getUTCDateString(coupon.startDate);
-          if (startDateStr && nowStr < startDateStr) isDateValid = false;
-        }
-        if (coupon.endDate) {
-          const endDateStr = this.getUTCDateString(coupon.endDate);
-          if (endDateStr && nowStr > endDateStr) isDateValid = false;
-        }
+        const startDate = this.getUTCDate(coupon.startDate);
+        const endDate = this.getUTCDate(coupon.endDate);
+
+        if (startDate && now < startDate) isDateValid = false;
+        if (endDate && now > endDate) isDateValid = false;
 
         const isStatusValid = coupon.status === CouponStatus.ACTIVE;
         const isGlobalLimitValid =
@@ -145,270 +165,261 @@ export class CouponsService {
     return coupons;
   }
 
-  async validateCouponDetailed(code: string, user_uid: string): Promise<CouponValidationResponseDto> {
+  async validateCouponDetailed(
+    code: string,
+    user_uid: string,
+    orderAmount?: number,
+  ): Promise<CouponValidationResponseDto> {
     const coupon = await this.couponsRepository.findOne({ where: { code } });
-    const currentDateStr = this.getCurrentUTCDateString();
+    const now = this.getCurrentUTCDate();
 
     if (!coupon) {
-      this.logger.warn({ code, user_uid, reason: 'NOT_FOUND', message: 'Coupon not found' });
+      this.logger.warn({
+        couponId: null,
+        code,
+        userId: user_uid,
+        orderAmount,
+        reason: 'NOT_FOUND',
+        message: 'Coupon not found',
+      });
       return {
-        valid: false,
+        isValidForUser: false,
         reason: 'NOT_ELIGIBLE',
         message: 'Coupon not found',
+        status: 'Inactive',
+        endDate: 'N/A',
       };
     }
 
-    const endDateStr = this.getUTCDateString(coupon.endDate) || 'N/A';
-    const startDateStr = this.getUTCDateString(coupon.startDate);
+    const endDateStr = coupon.endDate
+      ? this.getUTCDate(coupon.endDate)!.toISOString()
+      : 'N/A';
 
     // A) STATUS CHECK
     if (coupon.status !== CouponStatus.ACTIVE) {
-      const logData = {
+      this.logger.log({
         couponId: coupon.id,
         code: coupon.code,
         userId: user_uid,
+        orderAmount,
         status: coupon.status,
         endDate: endDateStr,
-        currentDate: currentDateStr,
         reason: 'INACTIVE',
-      };
-      this.logger.log(logData);
+      });
       return {
-        valid: false,
+        isValidForUser: false,
         reason: 'INACTIVE',
         message: `Coupon is ${coupon.status.toLowerCase()}`,
-        coupon: {
-          code: coupon.code,
-          name: coupon.name,
-          discountType: coupon.discountType,
-          discountValue: Number(coupon.discountValue),
-          minOrderValue: Number(coupon.minOrderValue),
-          maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-        },
+        status: coupon.status,
+        endDate: endDateStr,
       };
     }
 
     // B) DATE CHECKS
-    if (startDateStr && currentDateStr < startDateStr) {
-      const logData = {
+    const startDate = this.getUTCDate(coupon.startDate);
+    const endDate = this.getUTCDate(coupon.endDate);
+
+    if (startDate && now < startDate) {
+      this.logger.log({
         couponId: coupon.id,
         code: coupon.code,
         userId: user_uid,
+        orderAmount,
         status: coupon.status,
-        startDate: startDateStr,
-        currentDate: currentDateStr,
+        startDate: startDate.toISOString(),
+        currentDate: now.toISOString(),
         reason: 'NOT_YET_ACTIVE',
-      };
-      this.logger.log(logData);
+      });
       return {
-        valid: false,
-        reason: 'NOT_YET_ACTIVE',
-        message: `Coupon will be active on ${startDateStr}`,
-        coupon: {
-          code: coupon.code,
-          name: coupon.name,
-          discountType: coupon.discountType,
-          discountValue: Number(coupon.discountValue),
-          minOrderValue: Number(coupon.minOrderValue),
-          maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-        },
+        isValidForUser: false,
+        reason: 'NOT_ELIGIBLE',
+        message: `Coupon will be active on ${startDate.toISOString().split('T')[0]}`,
+        status: coupon.status,
+        endDate: endDateStr,
       };
     }
 
-    if (coupon.endDate) {
-      const endDateStrCheck = this.getUTCDateString(coupon.endDate);
-      if (endDateStrCheck && currentDateStr > endDateStrCheck) {
-        const logData = {
-          couponId: coupon.id,
-          code: coupon.code,
-          userId: user_uid,
-          status: coupon.status,
-          endDate: endDateStrCheck,
-          currentDate: currentDateStr,
-          reason: 'EXPIRED',
-        };
-        this.logger.log(logData);
-        return {
-          valid: false,
-          reason: 'EXPIRED',
-          message: `Coupon expired on ${endDateStrCheck}`,
-          coupon: {
-            code: coupon.code,
-            name: coupon.name,
-            discountType: coupon.discountType,
-            discountValue: Number(coupon.discountValue),
-            minOrderValue: Number(coupon.minOrderValue),
-            maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-          },
-        };
-      }
-    }
-
-    // Check global usage limit
-    if (coupon.usageLimit && coupon.redemptionCount >= coupon.usageLimit) {
-      const logData = {
+    if (endDate && now > endDate) {
+      this.logger.log({
         couponId: coupon.id,
         code: coupon.code,
         userId: user_uid,
+        orderAmount,
         status: coupon.status,
+        endDate: endDate.toISOString(),
+        currentDate: now.toISOString(),
+        reason: 'EXPIRED',
+      });
+      return {
+        isValidForUser: false,
+        reason: 'EXPIRED',
+        message: `Coupon expired on ${endDate.toISOString().split('T')[0]}`,
+        status: coupon.status,
+        endDate: endDateStr,
+      };
+    }
+
+    // C) MIN ORDER CHECK
+    if (orderAmount !== undefined && orderAmount < Number(coupon.minOrderValue)) {
+      this.logger.log({
+        couponId: coupon.id,
+        code: coupon.code,
+        userId: user_uid,
+        orderAmount,
+        minOrderValue: Number(coupon.minOrderValue),
+        reason: 'MIN_ORDER_NOT_MET',
+      });
+      return {
+        isValidForUser: false,
+        reason: 'MIN_ORDER_NOT_MET',
+        message: `Minimum order value of ${coupon.minOrderValue} required. Current: ${orderAmount}`,
+        status: coupon.status,
+        endDate: endDateStr,
+      };
+    }
+
+    // D) USER LIMIT CHECK
+    const userUsage = await this.getUsageCountForUser(code, user_uid);
+    if (coupon.usageLimitPerUser && userUsage >= coupon.usageLimitPerUser) {
+      this.logger.log({
+        couponId: coupon.id,
+        code: coupon.code,
+        userId: user_uid,
+        orderAmount,
+        userUsage,
+        usageLimitPerUser: coupon.usageLimitPerUser,
+        reason: 'USER_LIMIT_REACHED',
+      });
+      return {
+        isValidForUser: false,
+        reason: 'USER_LIMIT_REACHED',
+        message: `You have already used this coupon ${userUsage} times (Limit: ${coupon.usageLimitPerUser})`,
+        status: coupon.status,
+        endDate: endDateStr,
+      };
+    }
+
+    // E) TOTAL LIMIT CHECK
+    if (coupon.usageLimit && coupon.redemptionCount >= coupon.usageLimit) {
+      this.logger.log({
+        couponId: coupon.id,
+        code: coupon.code,
+        userId: user_uid,
+        orderAmount,
         redemptionCount: coupon.redemptionCount,
         usageLimit: coupon.usageLimit,
-        reason: 'USAGE_LIMIT_REACHED',
-      };
-      this.logger.log(logData);
+        reason: 'LIMIT_REACHED',
+      });
       return {
-        valid: false,
-        reason: 'USAGE_LIMIT_REACHED',
+        isValidForUser: false,
+        reason: 'LIMIT_REACHED',
         message: 'Coupon usage limit reached',
-        coupon: {
-          code: coupon.code,
-          name: coupon.name,
-          discountType: coupon.discountType,
-          discountValue: Number(coupon.discountValue),
-          minOrderValue: Number(coupon.minOrderValue),
-          maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-        },
+        status: coupon.status,
+        endDate: endDateStr,
       };
     }
 
     // Private coupon check
     if (coupon.assigned_to_uid && coupon.assigned_to_uid !== user_uid) {
-      const logData = {
+      this.logger.log({
         couponId: coupon.id,
         code: coupon.code,
         userId: user_uid,
         assignedTo: coupon.assigned_to_uid,
         reason: 'NOT_AUTHORIZED',
-      };
-      this.logger.log(logData);
+      });
       return {
-        valid: false,
-        reason: 'NOT_AUTHORIZED',
+        isValidForUser: false,
+        reason: 'NOT_ELIGIBLE',
         message: 'This coupon is not valid for your account',
-        coupon: {
-          code: coupon.code,
-          name: coupon.name,
-          discountType: coupon.discountType,
-          discountValue: Number(coupon.discountValue),
-          minOrderValue: Number(coupon.minOrderValue),
-          maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-        },
+        status: coupon.status,
+        endDate: endDateStr,
       };
     }
 
-    // Joinee coupon - first order only
+    // F) TARGET AUDIENCE CHECK
     if (coupon.source === 'referral_joinee') {
       const orderCount = await this.orderRepository.count({
         where: { customer: user_uid },
       });
       if (orderCount > 0) {
-        const logData = {
+        this.logger.log({
           couponId: coupon.id,
           code: coupon.code,
           userId: user_uid,
+          orderAmount,
           orderCount,
           reason: 'NOT_ELIGIBLE',
-        };
-        this.logger.log(logData);
+        });
         return {
-          valid: false,
+          isValidForUser: false,
           reason: 'NOT_ELIGIBLE',
           message: 'This coupon is only valid on your first order',
-          coupon: {
-            code: coupon.code,
-            name: coupon.name,
-            discountType: coupon.discountType,
-            discountValue: Number(coupon.discountValue),
-            minOrderValue: Number(coupon.minOrderValue),
-            maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-          },
+          status: coupon.status,
+          endDate: endDateStr,
         };
       }
     }
 
-    // User usage limit check
-    const userUsage = await this.getUsageCountForUser(code, user_uid);
-    if (coupon.usageLimitPerUser && userUsage >= coupon.usageLimitPerUser) {
-      const logData = {
-        couponId: coupon.id,
-        code: coupon.code,
-        userId: user_uid,
-        userUsage,
-        usageLimitPerUser: coupon.usageLimitPerUser,
-        reason: 'ALREADY_USED',
-      };
-      this.logger.log(logData);
-      return {
-        valid: false,
-        reason: 'ALREADY_USED',
-        message: `You have already used this coupon ${userUsage} times (Limit: ${coupon.usageLimitPerUser})`,
-        coupon: {
-          code: coupon.code,
-          name: coupon.name,
-          discountType: coupon.discountType,
-          discountValue: Number(coupon.discountValue),
-          minOrderValue: Number(coupon.minOrderValue),
-          maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-        },
-      };
-    }
-
-    // New user target audience check
     if (coupon.targetAudience === 'new' && !coupon.source) {
       const existingOrders = await this.orderRepository.count({
         where: [{ customer: user_uid }],
       });
       if (existingOrders > 0) {
-        const logData = {
+        this.logger.log({
           couponId: coupon.id,
           code: coupon.code,
           userId: user_uid,
+          orderAmount,
           orderCount: existingOrders,
           reason: 'NOT_ELIGIBLE',
-        };
-        this.logger.log(logData);
+        });
         return {
-          valid: false,
+          isValidForUser: false,
           reason: 'NOT_ELIGIBLE',
           message: 'This coupon is only valid for new users',
-          coupon: {
-            code: coupon.code,
-            name: coupon.name,
-            discountType: coupon.discountType,
-            discountValue: Number(coupon.discountValue),
-            minOrderValue: Number(coupon.minOrderValue),
-            maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-          },
+          status: coupon.status,
+          endDate: endDateStr,
         };
       }
     }
 
-    // All checks passed
+    // SUCCESS CASE
+    const discountAmount =
+      orderAmount !== undefined ? this.calculateDiscount(coupon, orderAmount) : 0;
+    const finalAmount =
+      orderAmount !== undefined
+        ? Number((orderAmount - discountAmount).toFixed(2))
+        : 0;
+
     this.logger.log({
       couponId: coupon.id,
       code: coupon.code,
       userId: user_uid,
-      reason: 'VALID',
+      orderAmount,
+      discountAmount,
+      finalAmount,
+      reason: null,
     });
 
     return {
-      valid: true,
+      isValidForUser: true,
       reason: null,
-      message: 'Coupon is valid',
-      coupon: {
-        code: coupon.code,
-        name: coupon.name,
-        discountType: coupon.discountType,
-        discountValue: Number(coupon.discountValue),
-        minOrderValue: Number(coupon.minOrderValue),
-        maxDiscountCap: coupon.maxDiscountCap ? Number(coupon.maxDiscountCap) : undefined,
-      },
+      message: 'Coupon applied successfully',
+      status: coupon.status,
+      endDate: endDateStr,
+      discountAmount: orderAmount !== undefined ? discountAmount : undefined,
+      finalAmount: orderAmount !== undefined ? finalAmount : undefined,
     };
   }
 
-  async validateCouponForUser(code: string, user_uid: string): Promise<void> {
-    const result = await this.validateCouponDetailed(code, user_uid);
-    if (!result.valid) {
+  async validateCouponForUser(
+    code: string,
+    user_uid: string,
+    orderAmount?: number,
+  ): Promise<void> {
+    const result = await this.validateCouponDetailed(code, user_uid, orderAmount);
+    if (!result.isValidForUser) {
       throw new ConflictException(result.message || 'Coupon validation failed');
     }
   }
@@ -457,8 +468,8 @@ export class CouponsService {
         c.usageLimit || 'Unlimited',
         c.redemptionCount || 0,
         c.status,
-        c.startDate ? c.startDate.toISOString().split('T')[0] : '',
-        c.endDate ? c.endDate.toISOString().split('T')[0] : '',
+        c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '',
+        c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : '',
       ].join(',');
     });
     return header + rows.join('\n');
@@ -470,14 +481,17 @@ export class CouponsService {
       .update(Coupon)
       .set({
         redemptionCount: () => 'redemptionCount + 1',
-        status: () => `CASE WHEN (redemptionCount + 1) >= usageLimit AND usageLimit IS NOT NULL THEN '${CouponStatus.INACTIVE}' ELSE status END`,
+        status: () =>
+          `CASE WHEN (redemptionCount + 1) >= usageLimit AND usageLimit IS NOT NULL THEN '${CouponStatus.INACTIVE}' ELSE status END`,
       })
       .where({ code })
       .andWhere('(usageLimit IS NULL OR redemptionCount < usageLimit)')
       .execute();
 
     if (result.affected === 0) {
-      this.logger.warn(`Coupon ${code} redemption skipped - usage limit reached or coupon not found.`);
+      this.logger.warn(
+        `Coupon ${code} redemption skipped - usage limit reached or coupon not found.`,
+      );
     } else {
       const updated = await this.couponsRepository.findOne({ where: { code } });
       this.logger.log(`Coupon ${code} redeemed. New count: ${updated?.redemptionCount}`);

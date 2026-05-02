@@ -587,10 +587,11 @@ export class CartService {
     const taxes = isGstRegistered ? (dto.taxes ?? itemTotal * 0.05) : 0;
 
     const grandTotal = dto.price ?? itemTotal + deliveryFee + taxes + packingCharge - couponDiscount;
+    const orderAmountForCoupon = itemTotal;
 
     if (dto.coupon_code) {
-      console.log(`🎟 Validating coupon: ${dto.coupon_code} for user: ${user_uid}`);
-      await this.couponsService.validateCouponForUser(dto.coupon_code, user_uid);
+      console.log(`🎟 Validating coupon: ${dto.coupon_code} for user: ${user_uid}, orderAmount: ${orderAmountForCoupon}`);
+      await this.couponsService.validateCouponForUser(dto.coupon_code, user_uid, orderAmountForCoupon);
     }
 
     // --- REUSE LOGIC: Check for an existing pending_payment Order for this user + restaurant ---
