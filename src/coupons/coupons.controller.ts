@@ -47,7 +47,8 @@ export class CouponsController {
   async validateCoupon(
     @Query('code') code: string,
     @Query('user_uid') queryUserUid: string,
-    @Req() req: any,
+    @Query('orderAmount') orderAmountQuery?: string,
+    @Req() req?: any,
   ): Promise<CouponValidationResponseDto> {
     const roleStr = String(req?.me?.role || req?.user?.role || '');
     const isAdmin = roleStr === '0' || roleStr === '1' || roleStr === '2';
@@ -55,14 +56,18 @@ export class CouponsController {
       ? queryUserUid
       : req?.me?.uid || req?.user?.uid || queryUserUid;
 
+    const orderAmount = orderAmountQuery ? Number(orderAmountQuery) : undefined;
+
     if (!code || !user_uid) {
       return {
-        valid: false,
+        isValidForUser: false,
         reason: 'NOT_ELIGIBLE',
         message: 'code and user_uid are required',
+        status: 'Inactive',
+        endDate: 'N/A',
       };
     }
-    return this.couponsService.validateCouponDetailed(code, user_uid);
+    return this.couponsService.validateCouponDetailed(code, user_uid, orderAmount);
   }
 
   @Get('report')

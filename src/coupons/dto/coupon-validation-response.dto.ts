@@ -1,26 +1,36 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsNumber } from 'class-validator';
 
 export class CouponValidationResponseDto {
   @IsBoolean()
-  valid: boolean;
+  isValidForUser: boolean;
 
   @IsOptional()
   @IsString()
-  reason?: string | null;
+  reason?:
+    | 'EXPIRED'
+    | 'INACTIVE'
+    | 'MIN_ORDER_NOT_MET'
+    | 'USER_LIMIT_REACHED'
+    | 'LIMIT_REACHED'
+    | 'NOT_ELIGIBLE'
+    | null;
 
-  @IsOptional()
   @IsString()
-  message?: string;
+  message: string;
+
+  @IsString()
+  status: string;
+
+  @IsString()
+  endDate: string;
 
   @IsOptional()
-  coupon?: {
-    code: string;
-    name: string;
-    discountType: string;
-    discountValue: number;
-    minOrderValue: number;
-    maxDiscountCap?: number;
-  };
+  @IsNumber()
+  discountAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  finalAmount?: number;
 }
 
 export class CouponWithFailureReasonDto {
