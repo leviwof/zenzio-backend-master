@@ -15,10 +15,7 @@ import { Response } from 'express';
 import { CouponsService } from './coupons.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
-
-
-
-
+import { CouponValidationResponseDto } from './dto/coupon-validation-response.dto';
 
 @Controller('coupons')
 export class CouponsController {
@@ -37,17 +34,35 @@ export class CouponsController {
     @Req() req?: any,
   ) {
     const roleStr = String(req?.me?.role || req?.user?.role || '');
-    const isAdmin = roleStr === '0' || roleStr === '1' || roleStr === '2'; // SUPER_ADMIN, MASTER_ADMIN, ADMIN
+    const isAdmin = roleStr === '0' || roleStr === '1' || roleStr === '2';
 
-    // If an Admin calls this, their personal UID from the token is ignored.
-    // We only use queryUserUid if the admin explicitly searches for a user.
-    // For mobile users, we force their personal UID.
     const userUid = isAdmin
       ? queryUserUid
       : req?.me?.uid || req?.user?.uid || queryUserUid;
 
-    console.log(`🔍 Coupons Fetch - Role: ${roleStr}, isAdmin: ${isAdmin}, Target UID: ${userUid}`);
     return this.couponsService.findAll(search, status, userUid, isAdmin);
+  }
+
+  @Get('validate')
+  async validateCoupon(
+    @Query('code') code: string,
+    @Query('user_uid') queryUserUid: string,
+    @Req() req: any,
+  ): Promise<CouponValidationResponseDto> {
+    const roleStr = String(req?.me?.role || req?.user?.role || '');
+    const isAdmin = roleStr === '0' || roleStr === '1' || roleStr === '2';
+    const user_uid = isAdmin
+      ? queryUserUid
+      : req?.me?.uid || req?.user?.uid || queryUserUid;
+
+    if (!code || !user_uid) {
+      return {
+        valid: false,
+        reason: 'NOT_ELIGIBLE',
+        message: 'code and user_uid are required',
+      };
+    }
+    return this.couponsService.validateCouponDetailed(code, user_uid);
   }
 
   @Get('report')
