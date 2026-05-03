@@ -716,7 +716,7 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  
+
   async notifyNewPartnerRegistered(partnerName: string, email: string): Promise<void> {
     await this.notifyAdmin({
       title: '🛵 New Delivery Partner Registered',
@@ -725,6 +725,165 @@ export class NotificationService implements OnModuleInit {
         type: 'NEW_PARTNER_REGISTRATION',
         partnerName,
         email,
+      },
+    });
+  }
+
+  // ============================================
+  // 🔔 ADMIN NOTIFICATIONS FOR CRITICAL EVENTS
+  // ============================================
+
+  /**
+   * Notify admin when delivery partner is reassigned
+   */
+  async notifyAdminPartnerReassigned(
+    orderId: string,
+    oldPartnerName: string,
+    newPartnerName: string,
+    reason?: string,
+  ): Promise<void> {
+    await this.notifyAdmin({
+      title: '🔄 Order Reassigned',
+      body: `Order #${orderId.substring(0, 8)} reassigned from ${oldPartnerName} to ${newPartnerName}`,
+      data: {
+        type: 'ORDER_REASSIGNED',
+        orderId,
+        oldPartnerName,
+        newPartnerName,
+        reason: reason || '',
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    });
+  }
+
+  /**
+   * Notify admin when order is delivered
+   */
+  async notifyAdminOrderDelivered(
+    orderId: string,
+    customerName: string,
+    partnerName: string,
+    deliveryAddress: string,
+  ): Promise<void> {
+    await this.notifyAdmin({
+      title: '✅ Order Delivered',
+      body: `${partnerName} delivered order #${orderId.substring(0, 8)} to ${customerName}`,
+      data: {
+        type: 'ORDER_DELIVERED',
+        orderId,
+        customerName,
+        partnerName,
+        deliveryAddress,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    });
+  }
+
+  /**
+   * Notify admin when admin cancels delivery (self-action confirmation)
+   */
+  async notifyAdminDeliveryCancelled(
+    orderId: string,
+    cancelledBy: string,
+    reason: string,
+  ): Promise<void> {
+    await this.notifyAdmin({
+      title: '⚠️ Delivery Cancelled',
+      body: `Order #${orderId.substring(0, 8)} cancelled by ${cancelledBy}. Reason: ${reason || 'No reason provided'}`,
+      data: {
+        type: 'DELIVERY_CANCELLED',
+        orderId,
+        cancelledBy,
+        reason,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    });
+  }
+
+  /**
+   * Notify admin when delivery status is changed by admin
+   */
+  async notifyAdminStatusChanged(
+    orderId: string,
+    oldStatus: string,
+    newStatus: string,
+    changedBy: string,
+  ): Promise<void> {
+    await this.notifyAdmin({
+      title: '📋 Status Updated',
+      body: `Order #${orderId.substring(0, 8)}: ${oldStatus} → ${newStatus} by ${changedBy}`,
+      data: {
+        type: 'STATUS_CHANGED',
+        orderId,
+        oldStatus,
+        newStatus,
+        changedBy,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    });
+  }
+
+  /**
+   * Notify admin when order is out for delivery (critical tracking)
+   */
+  async notifyAdminOrderOutForDelivery(
+    orderId: string,
+    partnerName: string,
+    customerName: string,
+    estimatedTime: string,
+  ): Promise<void> {
+    await this.notifyAdmin({
+      title: '🚀 Order Out for Delivery',
+      body: `${partnerName} is delivering order #${orderId.substring(0, 8)} to ${customerName}`,
+      data: {
+        type: 'ORDER_OUT_FOR_DELIVERY',
+        orderId,
+        partnerName,
+        customerName,
+        estimatedTime,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    });
+  }
+
+  /**
+   * Notify admin when partner accepts delivery job
+   */
+  async notifyAdminPartnerAccepted(
+    orderId: string,
+    partnerName: string,
+    restaurantName: string,
+  ): Promise<void> {
+    await this.notifyAdmin({
+      title: '🛵 Partner Accepted Order',
+      body: `${partnerName} accepted delivery for order #${orderId.substring(0, 8)} from ${restaurantName}`,
+      data: {
+        type: 'PARTNER_ACCEPTED',
+        orderId,
+        partnerName,
+        restaurantName,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+    });
+  }
+
+  /**
+   * Notify admin when order is picked up from restaurant
+   */
+  async notifyAdminOrderPickedUp(
+    orderId: string,
+    partnerName: string,
+    restaurantName: string,
+  ): Promise<void> {
+    await this.notifyAdmin({
+      title: '📦 Order Picked Up',
+      body: `${partnerName} picked up order #${orderId.substring(0, 8)} from ${restaurantName}`,
+      data: {
+        type: 'ORDER_PICKED_UP',
+        orderId,
+        partnerName,
+        restaurantName,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
     });
   }

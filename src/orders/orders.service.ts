@@ -1003,10 +1003,69 @@ export class OrdersService implements OnModuleInit {
         if (order.customer) {
           await this.notificationService.notifyOrderOutForDelivery(order.customer, order.orderId);
         }
+
+        // 🔔 NOTIFY ADMIN: Order out for delivery
+        if (dto.status === 'out_for_delivery') {
+          try {
+            const customerName = await this.getCustomerName(order.customer);
+            const partnerName = order.delivery_partner_uid
+              ? await this.getPartnerName(order.delivery_partner_uid)
+              : 'Unknown Partner';
+            const estimatedTime = order.estimated_time || '30-45 mins';
+
+            await this.notificationService.notifyAdminOrderOutForDelivery(
+              order.orderId,
+              partnerName,
+              customerName,
+              estimatedTime,
+            );
+            console.log(`📱 [ADMIN] Notified admin about order out for delivery`);
+          } catch (e) {
+            console.error('Failed to notify admin about out for delivery:', e);
+          }
+        }
+
+        // 🔔 NOTIFY ADMIN: Order picked up
+        if (dto.status === 'picked_up') {
+          try {
+            const partnerName = order.delivery_partner_uid
+              ? await this.getPartnerName(order.delivery_partner_uid)
+              : 'Unknown Partner';
+            const restaurantName = order.restaurant_name || 'Unknown Restaurant';
+
+            await this.notificationService.notifyAdminOrderPickedUp(
+              order.orderId,
+              partnerName,
+              restaurantName,
+            );
+            console.log(`📱 [ADMIN] Notified admin about order pickup`);
+          } catch (e) {
+            console.error('Failed to notify admin about pickup:', e);
+          }
+        }
       } else if (dto.status === 'delivered' && previousStatus !== 'delivered') {
         if (order.customer) {
           await this.notificationService.notifyOrderDelivered(order.customer, order.orderId);
           await this.referralService.handleOrderDelivered(order.customer, order.orderId);
+        }
+
+        // 🔔 NOTIFY ADMIN: Order delivered
+        try {
+          const customerName = await this.getCustomerName(order.customer);
+          const partnerName = order.delivery_partner_uid
+            ? await this.getPartnerName(order.delivery_partner_uid)
+            : 'Unknown Partner';
+          const deliveryAddress = order.delivery_address || 'Unknown Address';
+
+          await this.notificationService.notifyAdminOrderDelivered(
+            order.orderId,
+            customerName,
+            partnerName,
+            deliveryAddress,
+          );
+          console.log(`📱 [ADMIN] Notified admin about order delivery (via status update)`);
+        } catch (e) {
+          console.error('Failed to notify admin about delivery:', e);
         }
       }
     } catch (error) {
@@ -1150,6 +1209,18 @@ export class OrdersService implements OnModuleInit {
         console.log(
           `✅ [ADMIN] Delivery cancelled for order ${order.orderId}. Reason: ${reason || 'No reason provided'}`,
         );
+
+        // 🔔 NOTIFY ADMIN: Delivery cancelled
+        try {
+          await this.notificationService.notifyAdminDeliveryCancelled(
+            order.orderId,
+            'Admin',
+            reason || 'No reason provided',
+          );
+          console.log(`📱 [ADMIN] Notified admin about delivery cancellation`);
+        } catch (e) {
+          console.error('Failed to notify admin about cancellation:', e);
+        }
       } else {
         if (order.delivery_partner_uid) {
           await this.notificationService.notifyDeliveryPartnerStatusChangedByAdmin(
@@ -1172,6 +1243,19 @@ export class OrdersService implements OnModuleInit {
         console.log(
           `📋 [ADMIN] Delivery status updated for order ${order.orderId}: ${previousStatus} -> ${newStatus}`,
         );
+
+        // 🔔 NOTIFY ADMIN: Status changed
+        try {
+          await this.notificationService.notifyAdminStatusChanged(
+            order.orderId,
+            previousStatus,
+            newStatus,
+            'Admin',
+          );
+          console.log(`📱 [ADMIN] Notified admin about status change: ${previousStatus} → ${newStatus}`);
+        } catch (e) {
+          console.error('Failed to notify admin about status change:', e);
+        }
       }
     } catch (error) {
       console.error('❌ Error sending admin delivery status notifications:', error);
@@ -1993,6 +2077,25 @@ export class OrdersService implements OnModuleInit {
       await this.notificationService.notifyOrderDelivered(order.customer, order.orderId);
     }
 
+    // 🔔 NOTIFY ADMIN: Order delivered
+    try {
+      const customerName = await this.getCustomerName(order.customer);
+      const partnerName = order.delivery_partner_uid
+        ? await this.getPartnerName(order.delivery_partner_uid)
+        : 'Unknown Partner';
+      const deliveryAddress = order.delivery_address || 'Unknown Address';
+
+      await this.notificationService.notifyAdminOrderDelivered(
+        order.orderId,
+        customerName,
+        partnerName,
+        deliveryAddress,
+      );
+      console.log(`📱 [ADMIN] Notified admin about order delivery completion`);
+    } catch (e) {
+      console.error('Failed to notify admin about delivery completion:', e);
+    }
+
     return {
       status: 'success',
       message: 'Order verified and delivered (Synced)',
@@ -2646,7 +2749,21 @@ export class OrdersService implements OnModuleInit {
       console.error('Error updating delivery history during reassignment:', err);
     }
 
+    // Get old partner name for admin notification
+    let oldPartnerName = 'Previous Partner';
     if (oldPartnerUid) {
+      try {
+        const oldRes = await this.orderRepo.manager.query(
+          `SELECT first_name, last_name FROM fleet_profile WHERE "fleetUid" = $1`,
+          [oldPartnerUid],
+        );
+        if (oldRes && oldRes.length > 0) {
+          oldPartnerName = `${oldRes[0].first_name} ${oldRes[0].last_name}`.trim();
+        }
+      } catch (e) {
+        console.warn('Could not fetch old partner name', e);
+      }
+
       try {
         await this.notificationService.notifyDeliveryPartnerCancelledByAdmin(
           oldPartnerUid,
@@ -2684,6 +2801,74 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
+    // 🔔 NOTIFY ADMIN: Partner reassigned
+    try {
+      await this.notificationService.notifyAdminPartnerReassigned(
+        orderId,
+        oldPartnerName,
+        newPartnerName,
+        reason,
+      );
+      console.log(`📱 [ADMIN] Notified admin about partner reassignment: ${oldPartnerName} → ${newPartnerName}`);
+    } catch (e) {
+      console.error('Failed to notify admin about reassignment:', e);
+    }
+
     return savedOrder;
+  }
+
+  // ============================================
+  // 🔧 HELPER METHODS FOR ADMIN NOTIFICATIONS
+  // ============================================
+
+  /**
+   * Get customer name for admin notifications
+   */
+  private async getCustomerName(customerUid: string): Promise<string> {
+    if (!customerUid) return 'Unknown Customer';
+
+    try {
+      const result = await this.orderRepo.manager.query(
+        `SELECT "encryptedUsername", "firstName", "lastName"
+         FROM "user_contacts" uc
+         LEFT JOIN "user_profile" up ON uc."userUid" = up."userUid"
+         WHERE uc."userUid" = $1`,
+        [customerUid],
+      );
+
+      if (result && result.length > 0) {
+        const { encryptedUsername, firstName, lastName } = result[0];
+        if (firstName || lastName) {
+          return `${firstName || ''} ${lastName || ''}`.trim();
+        }
+        return encryptedUsername || 'Customer';
+      }
+    } catch (e) {
+      console.warn('Could not fetch customer name for admin notification:', e);
+    }
+
+    return 'Customer';
+  }
+
+  /**
+   * Get partner name for admin notifications
+   */
+  private async getPartnerName(partnerUid: string): Promise<string> {
+    if (!partnerUid) return 'Unknown Partner';
+
+    try {
+      const result = await this.orderRepo.manager.query(
+        `SELECT first_name, last_name FROM fleet_profile WHERE "fleetUid" = $1`,
+        [partnerUid],
+      );
+
+      if (result && result.length > 0) {
+        return `${result[0].first_name || ''} ${result[0].last_name || ''}`.trim() || 'Delivery Partner';
+      }
+    } catch (e) {
+      console.warn('Could not fetch partner name for admin notification:', e);
+    }
+
+    return 'Delivery Partner';
   }
 }
