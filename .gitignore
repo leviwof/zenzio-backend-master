@@ -42,10 +42,16 @@ lerna-debug.log*
 
 # dotenv environment variable files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
 .env.local
+.env.*.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+*.env
+!.env.example
 
 # temp directory
 .temp
@@ -62,3 +68,15 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 node_modules
 
 src/config/*.json
+
+# Additional Security Files
+*.pem
+*.key
+*.cert
+*.crt
+!encrypted-ca.cert.crt
+razorpay.json
+firebase-adminsdk*.json
+*-credentials.json
+secrets.yaml
+secrets.yml
