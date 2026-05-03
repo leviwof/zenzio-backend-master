@@ -20,9 +20,14 @@ export class OtpService {
   }
 
   async sendOtp(identifier: string): Promise<any> {
-    // 🔥 Test Number Configuration
     const otp = this.generateOtp();
-    this.logger.log(`[OTP] Sending OTP to ${identifier}: ${otp}`);
+
+    // ⚠️ SECURITY: Only log OTP in development
+    if (process.env.NODE_ENV === 'development') {
+      this.logger.log(`[OTP] Sending OTP to ${identifier}: ${otp}`);
+    } else {
+      this.logger.log(`[OTP] Sending OTP to ${identifier}`);
+    }
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -71,16 +76,20 @@ export class OtpService {
       };
     }
 
+    // ⚠️ SECURITY: Only return OTP in development mode
+    const responseData: any = {
+      identifier,
+      message: 'OTP generated and sent successfully',
+    };
+
+    if (process.env.NODE_ENV === 'development') {
+      responseData.otp = otp; // Only for dev/testing
+    }
+
     return {
       status: 'success',
       code: 200,
-      data: {
-        otpDetails: {
-          identifier,
-          otp, // Only for dev
-          message: 'OTP generated and sent successfully',
-        },
-      },
+      data: { otpDetails: responseData },
       meta: {
         timestamp: new Date().toISOString(),
         otpExpiresIn: 300,
