@@ -1460,7 +1460,24 @@ export class OrdersService implements OnModuleInit {
     const partnerLat = partnerPair?.lat ?? null;
     const partnerLng = partnerPair?.lng ?? null;
     let totalDistance: number | null = null;
+    let restaurantToCustomerDistance: number | null = null;
 
+    // Calculate restaurant to customer distance (delivery charge basis)
+    if (restaurantPair && customerPair) {
+      const d2 = this.calculateHaversineDistance(
+        restaurantPair.lat,
+        restaurantPair.lng,
+        customerPair.lat,
+        customerPair.lng,
+      );
+      restaurantToCustomerDistance = Number(d2.toFixed(2));
+
+      if (isNaN(restaurantToCustomerDistance) || restaurantToCustomerDistance === 0 || !isFinite(restaurantToCustomerDistance)) {
+        restaurantToCustomerDistance = null;
+      }
+    }
+
+    // Calculate total distance (partner -> restaurant -> customer)
     if (partnerPair && restaurantPair && customerPair) {
       const d1 = this.calculateHaversineDistance(
         partnerPair.lat,
@@ -1642,6 +1659,7 @@ export class OrdersService implements OnModuleInit {
         adminEarnings: adminEarnings,
         discount: Number(order.coupon_discount) || 0,
         total: grandTotal,
+        tax: taxes,
       },
       distanceKm: order.distance_km,
       customerInformation: {
@@ -1655,6 +1673,7 @@ export class OrdersService implements OnModuleInit {
       deliveryProof: order.delivery_proof_photo,
       orderTimeline: timeline,
       totalDistance: totalDistance,
+      restaurantToCustomerDistance: restaurantToCustomerDistance,
       partner: partnerPair
         ? {
             lat: partnerLat,
@@ -1676,6 +1695,10 @@ export class OrdersService implements OnModuleInit {
             label: 'Customer',
           }
         : null,
+      restaurant_lat: restaurantLat,
+      restaurant_lng: restaurantLng,
+      customer_lat: customerLat,
+      customer_lng: customerLng,
     };
     return responsePayload;
   }
