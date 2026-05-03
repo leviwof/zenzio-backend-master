@@ -58,6 +58,14 @@ export class CouponsController {
 
     const orderAmount = orderAmountQuery ? Number(orderAmountQuery) : undefined;
 
+    console.log(`🎟️ Coupon Validate Endpoint Called:`, {
+      code,
+      user_uid,
+      orderAmount,
+      isAdmin,
+      rawOrderAmount: orderAmountQuery,
+    });
+
     if (!code || !user_uid) {
       return {
         isValidForUser: false,

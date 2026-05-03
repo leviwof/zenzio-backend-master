@@ -43,11 +43,29 @@ export class CouponsService {
 
   private getUTCDate(date: Date | string | null): Date | null {
     if (!date) return null;
-    return new Date(new Date(date).toISOString());
+    // Handle DATE type columns (YYYY-MM-DD) - set to end of day for endDate comparison
+    const d = new Date(date);
+    return new Date(d.toISOString());
   }
 
   private getCurrentUTCDate(): Date {
     return new Date(new Date().toISOString());
+  }
+
+  // Helper to set time to end of day for endDate (23:59:59)
+  private getEndOfDay(date: Date | string | null): Date | null {
+    if (!date) return null;
+    const d = new Date(date);
+    d.setUTCHours(23, 59, 59, 999);
+    return d;
+  }
+
+  // Helper to set time to start of day for startDate (00:00:00)
+  private getStartOfDay(date: Date | string | null): Date | null {
+    if (!date) return null;
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
   }
 
   private calculateDiscount(coupon: Coupon, orderAmount: number): number {
@@ -119,8 +137,8 @@ export class CouponsService {
         const usageLimitPerUser = coupon.usageLimitPerUser || Infinity;
 
         let isDateValid = true;
-        const startDate = this.getUTCDate(coupon.startDate);
-        const endDate = this.getUTCDate(coupon.endDate);
+        const startDate = this.getStartOfDay(coupon.startDate);
+        const endDate = this.getEndOfDay(coupon.endDate);
 
         if (startDate && now < startDate) isDateValid = false;
         if (endDate && now > endDate) isDateValid = false;
@@ -173,6 +191,8 @@ export class CouponsService {
     const coupon = await this.couponsRepository.findOne({ where: { code } });
     const now = this.getCurrentUTCDate();
 
+    this.logger.log(`🎟️ Validating coupon: ${code} for user: ${user_uid}, orderAmount: ${orderAmount}`);
+
     if (!coupon) {
       this.logger.warn({
         couponId: null,
@@ -190,6 +210,19 @@ export class CouponsService {
         endDate: 'N/A',
       };
     }
+
+    // Debug logging
+    this.logger.log({
+      couponFound: true,
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      status: coupon.status,
+      startDate: coupon.startDate,
+      endDate: coupon.endDate,
+      minOrderValue: coupon.minOrderValue,
+      currentTime: now.toISOString(),
+    });
 
     const endDateStr = coupon.endDate
       ? this.getUTCDate(coupon.endDate)!.toISOString()
@@ -215,9 +248,9 @@ export class CouponsService {
       };
     }
 
-    // B) DATE CHECKS
-    const startDate = this.getUTCDate(coupon.startDate);
-    const endDate = this.getUTCDate(coupon.endDate);
+    // B) DATE CHECKS - Use start of day for startDate and end of day for endDate
+    const startDate = this.getStartOfDay(coupon.startDate);
+    const endDate = this.getEndOfDay(coupon.endDate);
 
     if (startDate && now < startDate) {
       this.logger.log({
