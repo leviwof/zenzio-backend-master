@@ -131,9 +131,9 @@ export class JwtService {
       case 's':
         return value;
       case 'm':
-        return value * 86400;
+        return value * 60;
       case 'h':
-        return value * 86400;
+        return value * 3600;
       case 'd':
         return value * 86400;
       default:
