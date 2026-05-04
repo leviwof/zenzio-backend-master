@@ -12,6 +12,7 @@ import {
   Patch,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Response, Request } from 'express';
 import { JwtServiceShared, JwtPayload } from '../shared/jwt.service';
 import { AuthService } from './auth.service';
@@ -29,7 +30,9 @@ export class AuthController {
     private readonly firebaseService: FirebaseService,
   ) {}
 
+  // Rate limit refresh endpoints to prevent token refresh abuse
   @Post('refresh')
+  @Throttle({ medium: { limit: 20, ttl: 60000 } })
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const cookies = req.cookies as Record<string, string | undefined>;
     const refreshToken = cookies['refresh_token'];
@@ -38,6 +41,7 @@ export class AuthController {
   }
 
   @Post('refresh/header')
+  @Throttle({ medium: { limit: 20, ttl: 60000 } })
   async refreshFromHeader(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
       // 1️⃣ Extract token from Authorization header

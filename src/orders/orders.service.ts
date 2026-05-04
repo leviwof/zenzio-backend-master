@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
+import { randomInt, randomBytes } from 'crypto';
 import { Order } from './order.entity';
 import { UpdateRestaurantStatusDto } from './dtos/update-restaurant-status.dto';
 import { UpdateDeliveryStatusDto } from './dtos/update-delivery-status.dto';
@@ -73,11 +74,14 @@ export class OrdersService implements OnModuleInit {
   }
 
   private generateOrderId(): string {
-    return `ORD-${Date.now()}-${Math.floor(Math.random() * 0xffff).toString(16)}`;
+    // Use cryptographically secure random bytes for order ID suffix
+    const randomHex = randomBytes(2).toString('hex');
+    return `ORD-${Date.now()}-${randomHex}`;
   }
 
   private generateOTP(): string {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+    // Use cryptographically secure random number generator for OTP
+    return randomInt(1000, 10000).toString();
   }
 
   private calculatePrice(items: any[]): number {

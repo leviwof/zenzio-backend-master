@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { randomInt } from 'crypto';
 import { OtpEntity } from './otp.entity';
 import { SmsService } from './sms.service';
 import { MailService } from 'src/mail/mail.service';
@@ -16,7 +17,8 @@ export class OtpService {
   ) {}
 
   private generateOtp(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    // Use cryptographically secure random number generator
+    return randomInt(100000, 1000000).toString();
   }
 
   async sendOtp(identifier: string): Promise<any> {
