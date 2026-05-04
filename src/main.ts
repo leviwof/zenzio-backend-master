@@ -8,7 +8,7 @@ import { join } from 'path';
 import * as dns from 'dns';
 import * as cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-
+import helmet from 'helmet';
 
 import * as bodyParser from 'body-parser';
 import { ValidationPipe } from '@nestjs/common';
@@ -20,6 +20,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Enable Helmet security headers
+  app.use(helmet());
 
   app.use(bodyParser.json({ limit: '10mb' }));
   app.use(bodyParser.urlencoded({ extended: true }));
@@ -29,13 +31,12 @@ async function bootstrap() {
     console.log(`\n📝 [REQUEST] ${req.method} ${req.url}`);
     const authHeader = req.headers['authorization'];
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const jwtToken = authHeader.substring(7);
-      console.log(`🔑 JWT Token: ${jwtToken}`);
+      console.log(`🔑 JWT Token: Present`);
     } else {
-      console.log(`🔑 JWT Token: No Token`);
+      console.log(`🔑 JWT Token: None`);
     }
     if (req.body && Object.keys(req.body).length > 0) {
-      console.log(`📦 Body: ${JSON.stringify(req.body, null, 2)}`);
+      console.log(`📦 Body: Present (${Object.keys(req.body).length} fields)`);
     }
     next();
   });
@@ -45,7 +46,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
     }),
   );
 
@@ -131,14 +132,6 @@ async function bootstrap() {
 
   SwaggerModule.setup('api-docs', app, document, {
     swaggerOptions: { persistAuthorization: true, withCredentials: true },
-  });
-
-
-  app.use((req, res, next) => {
-    if (!req.headers['clientid']) {
-      req.headers['clientid'] = '4197a0e1-6e3f-4452-8381-d391f60f8154';
-    }
-    next();
   });
 
 

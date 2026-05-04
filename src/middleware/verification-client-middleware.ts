@@ -16,20 +16,20 @@ export class VerificationClientMiddleware implements NestMiddleware {
     const ENV_CLIENT_SECRET = this.configService.get<string>('APP_CLIENT_SECRET');
 
     // ---------------------------------------------------
-    // 🚀 SKIP CHECK IN DEVELOPMENT
-    // ---------------------------------------------------
-    if (environment === 'development') {
-      console.log('⚠️ Skipping client verification (development mode)');
-      return next();
-    }
-
-    // ---------------------------------------------------
-    // 🔐 STRICT CHECK IN PRODUCTION
+    // 🔐 ALWAYS VERIFY CLIENT CREDENTIALS
     // ---------------------------------------------------
     if (!clientId) {
       throw new BadRequestException({
         statusCode: HttpStatus.BAD_REQUEST,
         message: 'Missing clientId header',
+      });
+    }
+
+    if (!ENV_CLIENT_ID || !ENV_CLIENT_SECRET) {
+      console.error('⚠️ APP_CLIENT_ID or APP_CLIENT_SECRET not configured');
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Server configuration error',
       });
     }
 
@@ -41,14 +41,10 @@ export class VerificationClientMiddleware implements NestMiddleware {
       });
     }
 
-    if (!ENV_CLIENT_SECRET) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Server configuration error',
-      });
+    if (environment === 'development') {
+      console.log('✅ Client verified (development mode)');
     }
 
-    console.log('✅ Client verified successfully!');
     next();
   }
 }
