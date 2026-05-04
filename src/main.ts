@@ -76,9 +76,17 @@ async function bootstrap() {
     });
   }
 
-  const corsOrigins = process.env.CORS_ORIGIN 
+  // CORS origins must come from environment variable - no hardcoded defaults
+  const corsOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3001', 'http://localhost:4000', 'http://52.66.77.59:4173'];
+    : [];
+
+  if (corsOrigins.length === 0) {
+    console.warn('⚠️  WARNING: CORS_ORIGIN not configured. No origins will be allowed!');
+    console.warn('⚠️  Set CORS_ORIGIN in .env file (comma-separated list)');
+  } else {
+    console.log(`✅ CORS enabled for ${corsOrigins.length} origin(s)`);
+  }
 
   app.enableCors({
     origin: corsOrigins,
