@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
 import { randomInt, randomBytes } from 'crypto';
@@ -20,7 +20,7 @@ import { ReferralService } from 'src/referral/referral.service';
 import { DeliveryZoneService } from 'src/delivery-zone/delivery-zone.service';
 
 @Injectable()
-export class OrdersService implements OnModuleInit {
+export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
@@ -37,41 +37,8 @@ export class OrdersService implements OnModuleInit {
     private readonly deliveryZoneService: DeliveryZoneService,
   ) {}
 
-  async onModuleInit() {
-    try {
-      await this.orderRepo.query(`
-        ALTER TABLE "orders" 
-        ADD COLUMN IF NOT EXISTS "status_timeline" jsonb DEFAULT '[]'::jsonb;
-        ALTER TABLE "orders" 
-        ADD COLUMN IF NOT EXISTS "delivery_proof_photo" text;
-        ALTER TABLE "orders" 
-        ADD COLUMN IF NOT EXISTS "admin_commission" float DEFAULT 0;
-        ALTER TABLE "orders" 
-        ADD COLUMN IF NOT EXISTS "packing_charge" float DEFAULT 10;
-        
-        -- Revenue tracking columns
-        ALTER TABLE "orders" 
-        ADD COLUMN IF NOT EXISTS "is_revenue_counted" boolean DEFAULT false;
-        ALTER TABLE "orders" 
-        ADD COLUMN IF NOT EXISTS "refunded_amount" float DEFAULT 0;
-        ALTER TABLE "orders" 
-        ADD COLUMN IF NOT EXISTS "payment_status" varchar(50);
-        
-        -- Partner coordinates
-        ALTER TABLE "orders"
-        ADD COLUMN IF NOT EXISTS "partner_lat" DECIMAL(10, 7);
-        ALTER TABLE "orders"
-        ADD COLUMN IF NOT EXISTS "partner_lng" DECIMAL(10, 7);
-
-        -- ✅ Standards: Force 15 min to 5 min for existing rows and set default
-        UPDATE "orders" SET "estimated_time" = '5 min' WHERE "estimated_time" = '15 min' OR "estimated_time" = '15 mins';
-        ALTER TABLE "orders" ALTER COLUMN "estimated_time" SET DEFAULT '5 min';
-      `);
-      console.log('✅ [Migration] preparation time defaults and existing rows updated to 5 min');
-    } catch (error: any) {
-      console.warn('⚠️ [Migration] Could not add status_timeline column:', error?.message || error);
-    }
-  }
+  // Database migrations moved to src/migrations/1777870743526-AddOrderEnhancements.ts
+  // Run migrations with: npm run migration:run
 
   private generateOrderId(): string {
     // Use cryptographically secure random bytes for order ID suffix
