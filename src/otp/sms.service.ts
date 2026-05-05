@@ -4,7 +4,7 @@ import axios, { AxiosResponse } from 'axios';
 interface Fast2SmsResponse {
  return: boolean;
  request_id: string;
- message: string[];
+ message: string[] | string; // Can be array or string depending on response
 }
 
 @Injectable()
@@ -64,7 +64,10 @@ export class SmsService {
    }
 
    // API returned 200 but failed
-   const errMsg = response.data?.message?.join(', ') ?? 'Unknown Fast2SMS error';
+   const messageData = response.data?.message;
+   const errMsg = Array.isArray(messageData)
+     ? messageData.join(', ')
+     : (typeof messageData === 'string' ? messageData : 'Unknown Fast2SMS error');
    this.logger.error(`Fast2SMS rejected request: ${errMsg}`);
    return {
     success: false,
