@@ -24,10 +24,10 @@ Your local backend is trying to connect to **production AWS RDS database** witho
 **What I did:**
 ```env
 # Before:
-DATABASE_URL=postgresql://postgres:ZenzoiRes12@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod
+DATABASE_URL=postgresql://postgres:YOUR_DB_PASSWORD@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod
 
 # After:
-DATABASE_URL=postgresql://postgres:ZenzoiRes12@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require
+DATABASE_URL=postgresql://postgres:YOUR_DB_PASSWORD@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require
 DB_SSL=true
 ```
 
@@ -144,13 +144,13 @@ npm run start:dev
 
 ```bash
 # Using psql (if installed):
-psql "postgresql://postgres:ZenzoiRes12@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require"
+psql "postgresql://postgres:YOUR_DB_PASSWORD@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require"
 
 # Or using Node.js:
 node -e "
 const { Client } = require('pg');
 const client = new Client({
-  connectionString: 'postgresql://postgres:ZenzoiRes12@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require'
+  connectionString: 'postgresql://postgres:YOUR_DB_PASSWORD@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require'
 });
 client.connect()
   .then(() => console.log('✅ Connected'))
@@ -171,7 +171,7 @@ NODE_ENV=development
 
 ### .env.production (Production DB with SSL)
 ```env
-DATABASE_URL=postgresql://postgres:ZenzoiRes12@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require
+DATABASE_URL=postgresql://postgres:YOUR_DB_PASSWORD@foodapp-db.c94ygi8i2cb8.ap-south-1.rds.amazonaws.com/zenzio_prod?sslmode=require
 DB_SSL=true
 NODE_ENV=production
 ```
