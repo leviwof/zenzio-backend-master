@@ -50,6 +50,7 @@ lerna-debug.log*
 .env.test.local
 .env.production
 .env.production.local
+.env.staging
 *.env
 !.env.example
 
