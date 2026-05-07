@@ -76,24 +76,17 @@ async function bootstrap() {
     });
   }
 
-  // CORS origins must come from environment variable - no hardcoded defaults
-  const corsOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-    : [];
-
-  if (corsOrigins.length === 0) {
-    console.warn('⚠️  WARNING: CORS_ORIGIN not configured. No origins will be allowed!');
-    console.warn('⚠️  Set CORS_ORIGIN in .env file (comma-separated list)');
-  } else {
-    console.log(`✅ CORS enabled for ${corsOrigins.length} origin(s)`);
-  }
+  const corsOrigin = process.env.CORS_ORIGIN || '*';
+  const corsOrigins = corsOrigin === '*'
+    ? '*'
+    : corsOrigin.split(',').map(o => o.trim());
 
   app.enableCors({
     origin: corsOrigins,
     methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'clientId', 'X-Requested-With', 'Accept', 'Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'clientId', 'platform', 'X-Requested-With', 'Accept', 'Origin'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    credentials: true,
+    credentials: corsOrigin !== '*',
     maxAge: 86400,
   });
 

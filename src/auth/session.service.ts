@@ -36,8 +36,7 @@ export class SessionService {
   }
 
   async deleteSession(refreshToken: string): Promise<void> {
-    const session = await this.findSessionByRefreshToken(refreshToken);
-    await this.sessionRepository.remove(session);
+    await this.sessionRepository.delete({ refreshToken });
   }
 
   async deleteSessionsForUser(userUid: string): Promise<void> {

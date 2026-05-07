@@ -13,6 +13,7 @@ import { UserAddress } from './user_address.entity';
 import { BankDetails } from './bank_details.entity';
 import { UtilService } from 'src/utils/util.service';
 import { OtpEntity } from 'src/otp/otp.entity';
+import { OtpModule } from 'src/otp/otp.module';
 import { ForgotPasswordController } from './forgot-password.controller';
 import { MailService } from 'src/mail/mail.service';
 import { UFileService } from './user-images.service';
@@ -31,6 +32,7 @@ import { ReferralModule } from 'src/referral/referral.module';
       OtpEntity,
     ]),
     forwardRef(() => FirebaseModule),
+    OtpModule,
     ReferralModule,
   ],
   controllers: [UsersController, ForgotPasswordController],
