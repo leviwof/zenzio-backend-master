@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { randomInt } from 'crypto';
 import { OtpEntity } from './otp.entity';
 import { SmsService } from './sms.service';
 import { MailService } from 'src/mail/mail.service';
+
+const MAX_ATTEMPTS = 5;
+const RESEND_COOLDOWN_MS = 30_000;
 
 @Injectable()
 export class OtpService {
@@ -17,14 +20,29 @@ export class OtpService {
   ) {}
 
   private generateOtp(): string {
-    // Use cryptographically secure random number generator
     return randomInt(100000, 1000000).toString();
   }
 
   async sendOtp(identifier: string): Promise<any> {
+    const lastOtp = await this.otpRepository.findOne({
+      where: { phone: identifier },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (lastOtp) {
+      const elapsed = Date.now() - new Date(lastOtp.createdAt).getTime();
+      if (elapsed < RESEND_COOLDOWN_MS) {
+        return {
+          status: 'error',
+          code: 429,
+          data: { message: `Please wait ${Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000)} seconds before requesting a new OTP` },
+          meta: { timestamp: new Date().toISOString() },
+        };
+      }
+    }
+
     const otp = this.generateOtp();
 
-    // ⚠️ SECURITY: Only log OTP in development
     if (process.env.NODE_ENV === 'development') {
       this.logger.log(`[OTP] Sending OTP to ${identifier}: ${otp}`);
     } else {
@@ -33,9 +51,8 @@ export class OtpService {
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    // Save OTP
     const otpRecord = this.otpRepository.create({
-      phone: identifier, // 'phone' column stores identifier (email or phone)
+      phone: identifier,
       otp,
       expiresAt,
     });
@@ -45,7 +62,6 @@ export class OtpService {
     let response;
 
     if (identifier.includes('@')) {
-      // Send Email
       try {
         await this.mailService.sendMail(
           identifier,
@@ -60,7 +76,6 @@ export class OtpService {
         };
       }
     } else {
-      // Send SMS
       const smsResponse = await this.smsService.sendOtp(identifier, Number(otp));
       this.logger.log(`SMS Response for ${identifier}: ${JSON.stringify(smsResponse)}`);
       response = { success: smsResponse.success, error: smsResponse.error, data: smsResponse.data };
@@ -78,14 +93,13 @@ export class OtpService {
       };
     }
 
-    // ⚠️ SECURITY: Only return OTP in development mode
     const responseData: any = {
       identifier,
       message: 'OTP generated and sent successfully',
     };
 
     if (process.env.NODE_ENV === 'development') {
-      responseData.otp = otp; // Only for dev/testing
+      responseData.otp = otp;
     }
 
     return {
@@ -104,7 +118,7 @@ export class OtpService {
     this.logger.log(`[OTP] Verifying OTP for ${phone}: ${otp}`);
 
     const record = await this.otpRepository.findOne({
-      where: { phone: phone.trim(), isVerified: false },
+      where: { phone: phone.trim(), isVerified: false, used: false },
       order: { createdAt: 'DESC' },
     });
 
@@ -127,7 +141,18 @@ export class OtpService {
       };
     }
 
+    if (record.attemptCount >= MAX_ATTEMPTS) {
+      return {
+        status: 'error',
+        code: 429,
+        data: { message: 'Maximum OTP attempts exceeded. Please request a new OTP.' },
+        meta: { timestamp },
+      };
+    }
+
     if (record.otp !== otp) {
+      record.attemptCount += 1;
+      await this.otpRepository.save(record);
       return {
         status: 'error',
         code: 400,
@@ -148,6 +173,17 @@ export class OtpService {
       },
       meta: { timestamp },
     };
+  }
+
+  async markOtpAsUsed(phone: string): Promise<void> {
+    const record = await this.otpRepository.findOne({
+      where: { phone, isVerified: true, used: false },
+      order: { createdAt: 'DESC' },
+    });
+    if (record) {
+      record.used = true;
+      await this.otpRepository.save(record);
+    }
   }
 
   async getAllOtps(): Promise<any> {

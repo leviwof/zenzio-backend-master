@@ -183,9 +183,8 @@ export class UsersController {
   //   return this.usersService.signupWithGoogle(idToken);
   // }
 
-  @Post('refresh-auth')
+  @Get('refresh-auth')
   refreshAuth(@Query('refreshToken') refreshToken: string) {
-    console.log({ refreshToken123: refreshToken });
     return this.usersService.refreshAuthToken(refreshToken);
   }
 

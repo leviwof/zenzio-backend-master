@@ -2,7 +2,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from
 import { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -35,6 +35,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : null,
     };
 
+    // If the exception response is already a plain object, pass it through as-is
+    if (exception instanceof HttpException) {
+      const responseBody = exception.getResponse();
+      if (responseBody && typeof responseBody === 'object' && !Array.isArray(responseBody)) {
+        const body = responseBody as Record<string, unknown>;
+        // If it has only a 'message' key, pass through exactly (for strict Flutter contract)
+        if (Object.keys(body).length === 1 && 'message' in body) {
+          this.logToFile(errorDetails);
+          return response.status(status).json(body);
+        }
+      }
+    }
+
     // If it's a BadRequestException, handle the invalid fields and send the response accordingly
     if (exception instanceof BadRequestException) {
       const responseBody = exception.getResponse();
@@ -44,10 +57,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : undefined;
 
       if (message) {
-        // Handle invalid fields (message could be a string or an array of strings)
         let details = Array.isArray(message) ? message : [message];
 
-        // If the exception already has detailed 'details', use them
         if (
           responseBody &&
           typeof responseBody === 'object' &&
@@ -57,22 +68,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
           details = (responseBody as any).details;
         }
 
-        // Write the error details to the log file (including the stack and url)
         this.logToFile({
           ...errorDetails,
-          details, // Include invalid fields in the log for debugging
+          details,
         });
 
-        // Get the actual message to show to the user
         const errorMessage = Array.isArray(message)
-          ? message.join(', ')  // If multiple errors, join them
-          : String(message);    // Single error message
+          ? message.join(', ')
+          : String(message);
 
-        // Send the error response with invalid fields
         return response.status(status).json({
           statusCode: status,
-          message: errorMessage || 'Validation failed',  // Show actual error message
-          details, // Include invalid fields in the response
+          message: errorMessage || 'Validation failed',
+          details,
           error:
             typeof exception === 'object' &&
               exception !== null &&
@@ -84,10 +92,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
-    // For other exceptions, log to file and send a standard error response
     this.logToFile(errorDetails);
 
-    // Send standard error response (without details in other exceptions)
     response.status(status).json({
       statusCode: status,
       message:
