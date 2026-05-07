@@ -7,59 +7,59 @@ on:
       - staging
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Deploy to EC2
-    uses: appleboy/ssh-action@v0.1.6
-    with:
-      host: ${{ secrets.HOST }}
-      username: ${{ secrets.USERNAME }}
-      key: ${{ secrets.SSH_KEY }}
-      script: |
-        set -e
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        cd /home/ubuntu/restaurant_app/zenzio_backend
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
 
-        BRANCH=${GITHUB_REF##*/}
+            cd /home/ubuntu/restaurant_app/zenzio_backend
 
-        if [ "$BRANCH" = "master" ]; then
-          echo "Deploying PROD"
-          git fetch origin
-          git reset --hard origin/master
+            BRANCH="${GITHUB_REF##*/}"
 
-          ENV_FILE=".env"
-          PM2_NAME="backend"
-          PORT=3000
-        else
-          echo "Deploying STAGING"
-          git fetch origin
-          git reset --hard origin/staging
+            if [ "$BRANCH" = "master" ]; then
+              echo "Deploying PROD"
+              git fetch origin
+              git reset --hard origin/master
+              ENV_FILE=".env"
+              PM2_NAME="backend"
+              PORT=3000
+            else
+              echo "Deploying STAGING"
+              git fetch origin
+              git reset --hard origin/staging
+              ENV_FILE=".env.staging"
+              PM2_NAME="backend-staging"
+              PORT=4000
+            fi
 
-          ENV_FILE=".env.staging"
-          PM2_NAME="backend-staging"
-          PORT=4000
-        fi
+            npm ci
+            npm run build
 
-        npm ci
-        npm run build
+            cp "$ENV_FILE" .env
 
-        cp $ENV_FILE .env
+            pm2 delete "$PM2_NAME" || true
+            pm2 start dist/main.js --name "$PM2_NAME" --update-env
+            pm2 save
 
-        pm2 delete $PM2_NAME || true
-        pm2 start dist/main.js --name $PM2_NAME --update-env
+            for i in $(seq 1 20); do
+              if curl -fsS "http://localhost:${PORT}/health" >/dev/null; then
+                echo "Health check passed"
+                exit 0
+              fi
+              sleep 3
+            done
 
-        pm2 save
-
-        for i in $(seq 1 20); do
-          if curl -fsS "http://localhost:${PORT}/health" >/dev/null; then
-            echo "Health check passed"
-            exit 0
-          fi
-          sleep 3
-        done
-
-        echo "Health check failed"
-        pm2 logs $PM2_NAME --lines 100 --nostream || true
-        exit 1
+            echo "Health check failed"
+            pm2 logs "$PM2_NAME" --lines 100 --nostream || true
+            exit 1
