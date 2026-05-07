@@ -12,7 +12,7 @@ runs-on: ubuntu-latest
 
 ```
 steps:
-  - name: Deploy to EC2 via SSH
+  - name: Deploy to EC2
     uses: appleboy/ssh-action@v0.1.6
     with:
       host: ${{ secrets.HOST }}
@@ -23,20 +23,18 @@ steps:
 
         cd /home/ubuntu/restaurant_app/zenzio_backend
 
-        echo "Detect branch"
         BRANCH=${GITHUB_REF##*/}
 
         if [ "$BRANCH" = "master" ]; then
-          echo "🚀 Deploying PRODUCTION"
+          echo "Deploying PROD"
           git fetch origin
           git reset --hard origin/master
 
           ENV_FILE=".env"
           PM2_NAME="backend"
           PORT=3000
-
         else
-          echo "🧪 Deploying STAGING"
+          echo "Deploying STAGING"
           git fetch origin
           git reset --hard origin/staging
 
@@ -45,32 +43,25 @@ steps:
           PORT=4000
         fi
 
-        echo "Install dependencies"
         npm ci
-
-        echo "Build project"
         npm run build
 
-        echo "Apply environment"
         cp $ENV_FILE .env
 
-        echo "Restart PM2 process"
         pm2 delete $PM2_NAME || true
         pm2 start dist/main.js --name $PM2_NAME --update-env
 
         pm2 save
 
-        echo "Health check on port ${PORT}"
         for i in $(seq 1 20); do
           if curl -fsS "http://localhost:${PORT}/health" >/dev/null; then
-            echo "✅ Health check passed"
+            echo "Health check passed"
             exit 0
           fi
-          echo "⏳ Waiting... ${i}/20"
           sleep 3
         done
 
-        echo "❌ Health check failed"
+        echo "Health check failed"
         pm2 logs $PM2_NAME --lines 100 --nostream || true
         exit 1
 ```
