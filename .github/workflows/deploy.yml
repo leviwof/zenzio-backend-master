@@ -10,7 +10,6 @@ jobs:
 deploy:
 runs-on: ubuntu-latest
 
-```
 steps:
   - name: Deploy to EC2
     uses: appleboy/ssh-action@v0.1.6
@@ -64,4 +63,3 @@ steps:
         echo "Health check failed"
         pm2 logs $PM2_NAME --lines 100 --nostream || true
         exit 1
-```
