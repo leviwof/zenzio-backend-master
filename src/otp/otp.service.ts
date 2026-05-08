@@ -23,9 +23,21 @@ export class OtpService {
     return randomInt(100000, 1000000).toString();
   }
 
+  private normalizeIdentifier(identifier: string): string {
+    const trimmed = identifier.trim();
+    if (trimmed.includes('@')) return trimmed.toLowerCase();
+
+    const digits = trimmed.replace(/\D/g, '');
+    if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+    if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+    return digits;
+  }
+
   async sendOtp(identifier: string): Promise<any> {
+    const normalizedIdentifier = this.normalizeIdentifier(identifier);
+
     const lastOtp = await this.otpRepository.findOne({
-      where: { phone: identifier },
+      where: { phone: normalizedIdentifier },
       order: { createdAt: 'DESC' },
     });
 
@@ -35,7 +47,9 @@ export class OtpService {
         return {
           status: 'error',
           code: 429,
-          data: { message: `Please wait ${Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000)} seconds before requesting a new OTP` },
+          data: {
+            message: `Please wait ${Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000)} seconds before requesting a new OTP`,
+          },
           meta: { timestamp: new Date().toISOString() },
         };
       }
@@ -43,12 +57,12 @@ export class OtpService {
 
     const otp = this.generateOtp();
 
-    this.logger.log(`[OTP] Sending OTP to ${identifier}: ${otp}`);
+    this.logger.log(`[OTP] Sending OTP to ${normalizedIdentifier}: ${otp}`);
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     const otpRecord = this.otpRepository.create({
-      phone: identifier,
+      phone: normalizedIdentifier,
       otp,
       expiresAt,
     });
@@ -57,10 +71,10 @@ export class OtpService {
 
     let response;
 
-    if (identifier.includes('@')) {
+    if (normalizedIdentifier.includes('@')) {
       try {
         await this.mailService.sendMail(
-          identifier,
+          normalizedIdentifier,
           'Your Verification Code',
           `<p>Your OTP code is: <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
         );
@@ -72,8 +86,8 @@ export class OtpService {
         };
       }
     } else {
-      const smsResponse = await this.smsService.sendOtp(identifier, Number(otp));
-      this.logger.log(`SMS Response for ${identifier}: ${JSON.stringify(smsResponse)}`);
+      const smsResponse = await this.smsService.sendOtp(normalizedIdentifier, Number(otp));
+      this.logger.log(`SMS Response for ${normalizedIdentifier}: ${JSON.stringify(smsResponse)}`);
       response = { success: smsResponse.success, error: smsResponse.error, data: smsResponse.data };
     }
 
@@ -90,7 +104,7 @@ export class OtpService {
     }
 
     const responseData: any = {
-      identifier,
+      identifier: normalizedIdentifier,
       message: 'OTP generated and sent successfully',
     };
 
@@ -109,15 +123,16 @@ export class OtpService {
 
   async verifyOtp(phone: string, otp: string): Promise<any> {
     const timestamp = new Date().toISOString();
-    this.logger.log(`[OTP] Verifying OTP for ${phone}: ${otp}`);
+    const normalizedPhone = this.normalizeIdentifier(phone);
+    this.logger.log(`[OTP] Verifying OTP for ${normalizedPhone}: ${otp}`);
 
     const record = await this.otpRepository.findOne({
-      where: { phone: phone.trim(), isVerified: false, used: false },
+      where: { phone: normalizedPhone, isVerified: false, used: false },
       order: { createdAt: 'DESC' },
     });
 
     if (!record) {
-      this.logger.warn(`[OTP] No record found for ${phone}`);
+      this.logger.warn(`[OTP] No record found for ${normalizedPhone}`);
       return {
         status: 'error',
         code: 404,
@@ -170,8 +185,9 @@ export class OtpService {
   }
 
   async markOtpAsUsed(phone: string): Promise<void> {
+    const normalizedPhone = this.normalizeIdentifier(phone);
     const record = await this.otpRepository.findOne({
-      where: { phone, isVerified: true, used: false },
+      where: { phone: normalizedPhone, isVerified: true, used: false },
       order: { createdAt: 'DESC' },
     });
     if (record) {

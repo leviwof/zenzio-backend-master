@@ -15,10 +15,7 @@ export const envValidationSchema = Joi.object({
     .default('development')
     .description('Application environment'),
 
-  PORT: Joi.number()
-    .port()
-    .default(4000)
-    .description('Application port'),
+  PORT: Joi.number().port().default(4000).description('Application port'),
 
   // ============================================================================
   // DATABASE
@@ -59,10 +56,7 @@ export const envValidationSchema = Joi.object({
   // ============================================================================
   // CLIENT AUTHENTICATION
   // ============================================================================
-  APP_CLIENT_ID: Joi.string()
-    .uuid()
-    .required()
-    .description('Application client ID (UUID format)'),
+  APP_CLIENT_ID: Joi.string().uuid().required().description('Application client ID (UUID format)'),
 
   APP_CLIENT_SECRET: Joi.string()
     .min(32)
@@ -85,101 +79,70 @@ export const envValidationSchema = Joi.object({
   // ============================================================================
   // FIREBASE
   // ============================================================================
-  FIREBASE_API_KEY: Joi.string()
-    .required()
-    .description('Firebase API key'),
+  FIREBASE_API_KEY: Joi.string().required().description('Firebase API key'),
 
   // ============================================================================
   // GOOGLE SERVICES
   // ============================================================================
-  GOOGLE_API_KEY: Joi.string()
-    .optional()
-    .description('Google API key (optional)'),
+  GOOGLE_API_KEY: Joi.string().optional().description('Google API key (optional)'),
 
-  GOOGLE_MAPS_API_KEY: Joi.string()
-    .required()
-    .description('Google Maps API key'),
+  GOOGLE_MAPS_API_KEY: Joi.string().required().description('Google Maps API key'),
 
-  GOOGLE_CLIENT_ID: Joi.string()
-    .optional()
-    .description('Google OAuth client ID (optional)'),
+  GOOGLE_CLIENT_ID: Joi.string().optional().description('Google OAuth client ID (optional)'),
 
   // ============================================================================
   // AWS S3
   // ============================================================================
-  AWS_ACCESS_KEY: Joi.string()
-    .required()
-    .description('AWS access key ID'),
+  AWS_ACCESS_KEY: Joi.string().required().description('AWS access key ID'),
 
-  AWS_SECRET_KEY: Joi.string()
-    .required()
-    .description('AWS secret access key'),
+  AWS_SECRET_KEY: Joi.string().required().description('AWS secret access key'),
 
-  AWS_REGION: Joi.string()
-    .default('ap-south-1')
-    .description('AWS region'),
+  AWS_REGION: Joi.string().default('ap-south-1').description('AWS region'),
 
-  AWS_BUCKET_NAME: Joi.string()
-    .required()
-    .description('AWS S3 bucket name'),
+  AWS_BUCKET_NAME: Joi.string().required().description('AWS S3 bucket name'),
 
-  AWS_ENDPOINT: Joi.string()
-    .uri()
-    .required()
-    .description('AWS S3 endpoint URL'),
+  AWS_ENDPOINT: Joi.string().uri().required().description('AWS S3 endpoint URL'),
 
-  AWS_API_VERSION: Joi.string()
-    .default('2006-03-01')
-    .description('AWS API version'),
+  AWS_API_VERSION: Joi.string().default('2006-03-01').description('AWS API version'),
 
   // ============================================================================
   // PAYMENT GATEWAY (RAZORPAY)
   // ============================================================================
-  RAZORPAY_KEY_ID: Joi.string()
-    .required()
-    .description('Razorpay key ID'),
+  RAZORPAY_KEY_ID: Joi.string().required().description('Razorpay key ID'),
 
-  RAZORPAY_KEY_SECRET: Joi.string()
-    .required()
-    .description('Razorpay key secret'),
+  RAZORPAY_KEY_SECRET: Joi.string().required().description('Razorpay key secret'),
 
   // ============================================================================
   // SMS SERVICE (FAST2SMS)
   // ============================================================================
-  FAST2SMS_API_KEY: Joi.string()
-    .required()
-    .description('Fast2SMS API key'),
+  FAST2SMS_API_KEY: Joi.string().required().description('Fast2SMS API key'),
+
+  SMS_API_KEY: Joi.string().optional().allow('').description('Legacy SMS API key fallback'),
+
+  SMS_API_URL: Joi.string().uri().optional().allow('').description('SMS provider API URL'),
+
+  SMS_TEST_MODE: Joi.string()
+    .valid('true', 'false')
+    .default('false')
+    .description('Enable SMS test mode without sending real SMS'),
 
   // ============================================================================
   // EMAIL SERVICE
   // ============================================================================
-  MAIL_HOST: Joi.string()
-    .required()
-    .description('SMTP server host'),
+  MAIL_HOST: Joi.string().required().description('SMTP server host'),
 
-  MAIL_PORT: Joi.number()
-    .port()
-    .default(587)
-    .description('SMTP server port'),
+  MAIL_PORT: Joi.number().port().default(587).description('SMTP server port'),
 
   MAIL_SECURE: Joi.string()
     .valid('true', 'false')
     .default('false')
     .description('Enable SMTP SSL/TLS'),
 
-  MAIL_USER: Joi.string()
-    .email()
-    .required()
-    .description('SMTP username (email)'),
+  MAIL_USER: Joi.string().email().required().description('SMTP username (email)'),
 
-  MAIL_PASS: Joi.string()
-    .required()
-    .description('SMTP password'),
+  MAIL_PASS: Joi.string().required().description('SMTP password'),
 
-  SUPPORT_EMAIL: Joi.string()
-    .email()
-    .required()
-    .description('Support email address'),
+  SUPPORT_EMAIL: Joi.string().email().required().description('Support email address'),
 
   SUPPORT_REPLY_EMAIL: Joi.string()
     .email()
@@ -189,26 +152,16 @@ export const envValidationSchema = Joi.object({
   // ============================================================================
   // REDIS (OPTIONAL)
   // ============================================================================
-  REDIS_HOST: Joi.string()
-    .default('127.0.0.1')
-    .description('Redis server host'),
+  REDIS_HOST: Joi.string().default('127.0.0.1').description('Redis server host'),
 
-  REDIS_PORT: Joi.number()
-    .port()
-    .default(6379)
-    .description('Redis server port'),
+  REDIS_PORT: Joi.number().port().default(6379).description('Redis server port'),
 
-  REDIS_PASSWORD: Joi.string()
-    .optional()
-    .allow('')
-    .description('Redis password (optional)'),
+  REDIS_PASSWORD: Joi.string().optional().allow('').description('Redis password (optional)'),
 
   // ============================================================================
   // CORS CONFIGURATION
   // ============================================================================
-  CORS_ORIGIN: Joi.string()
-    .required()
-    .description('Comma-separated list of allowed CORS origins'),
+  CORS_ORIGIN: Joi.string().required().description('Comma-separated list of allowed CORS origins'),
 
   // ============================================================================
   // FRONTEND URLS
