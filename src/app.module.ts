@@ -166,6 +166,9 @@ export class AppModule implements NestModule, OnModuleInit {
         { path: 'health/live', method: RequestMethod.ALL },
         { path: '/status-codes', method: RequestMethod.ALL },
         { path: 'test-email', method: RequestMethod.ALL },
+        { path: 'otp/send', method: RequestMethod.POST },
+        { path: 'otp/verify', method: RequestMethod.POST },
+        { path: 'otp/list', method: RequestMethod.GET },
       )
       .forRoutes('*');
 
