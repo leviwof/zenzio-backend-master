@@ -37,52 +37,9 @@ export class SmsService {
    };
   }
 
-  // Try DLT route first (for DLT-approved sender IDs)
-  const dltResult = await this.tryDltRoute(apiKey, num, otp);
-  if (dltResult.success) return dltResult;
-
-  // Fallback to Quick SMS route
-  this.logger.warn(`DLT route failed, trying Quick SMS for ${this.maskMobile(mobile)}`);
+  // Directly use Quick SMS route, skipping DLT
+  this.logger.log(`Sending Quick SMS to ${this.maskMobile(mobile)}`);
   return this.tryQuickSms(apiKey, num, otp);
- }
-
- private async tryDltRoute(
-  apiKey: string,
-  mobile: string,
-  otp: number,
- ): Promise<{ success: boolean; message: string; data?: Fast2SmsResponse; error?: string }> {
-  const senderId = process.env.SMS_SENDER_ID;
-  const templateId = process.env.SMS_DLT_TEMPLATE_ID;
-  if (!senderId || !templateId) return { success: false, message: 'DLT sender ID or template ID not configured' };
-
-  try {
-   const response: AxiosResponse<Fast2SmsResponse> = await axios.post(
-    'https://www.fast2sms.com/dev/bulkV2',
-    {
-     route: 'dlt',
-     sender_id: senderId,
-     message: templateId,
-     variables_values: otp.toString(),
-     numbers: mobile,
-    },
-    {
-     headers: { authorization: apiKey },
-     timeout: 10_000,
-    },
-   );
-
-   this.logger.log(`DLT response: ${JSON.stringify(response.data)}`);
-
-   if (response.data?.return === true) {
-    this.logger.log(`OTP sent via DLT to ${this.maskMobile(mobile)}`);
-    return { success: true, message: 'SMS sent successfully', data: response.data };
-   }
-
-   return { success: false, message: 'DLT route failed', data: response.data };
-  } catch (error) {
-   this.logger.error(`DLT exception: ${(error as Error).message}`);
-   return { success: false, message: 'DLT route failed', error: (error as Error).message };
-  }
  }
 
  private async tryQuickSms(
