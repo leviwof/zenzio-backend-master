@@ -11,7 +11,7 @@ export const envValidationSchema = Joi.object({
   // NODE ENVIRONMENT
   // ============================================================================
   NODE_ENV: Joi.string()
-    .valid('development', 'production', 'test', 'staging')
+    .valid('development', 'production', 'test')
     .default('development')
     .description('Application environment'),
 

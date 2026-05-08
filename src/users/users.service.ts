@@ -314,8 +314,6 @@ export class UsersService {
   async loginWithOtp(payload: LoginOtpDto) {
     const { phone, otp } = payload;
 
-    const isStaging = process.env.APP_MODE === 'staging' || process.env.NODE_ENV === 'staging';
-
     const contact = await this.userContactRepository.findOne({
       where: { encryptedPhone: phone },
     });
@@ -324,29 +322,27 @@ export class UsersService {
       throw new HttpException({ message: 'User not found' }, HttpStatus.UNAUTHORIZED);
     }
 
-    if (!isStaging) {
-      const record = await this.otpRepository.findOne({
-        where: { phone: contact.encryptedPhone, isVerified: false, used: false },
-        order: { createdAt: 'DESC' },
-      });
+    const record = await this.otpRepository.findOne({
+      where: { phone: contact.encryptedPhone, isVerified: false, used: false },
+      order: { createdAt: 'DESC' },
+    });
 
-      if (!record) throw new UnauthorizedException('Invalid OTP');
+    if (!record) throw new UnauthorizedException('Invalid OTP');
 
-      if (new Date() > record.expiresAt) throw new UnauthorizedException('OTP expired');
+    if (new Date() > record.expiresAt) throw new UnauthorizedException('OTP expired');
 
-      if (record.attemptCount >= 5) {
-        throw new UnauthorizedException('Maximum OTP attempts exceeded');
-      }
-
-      if (record.otp !== otp) {
-        record.attemptCount += 1;
-        await this.otpRepository.save(record);
-        throw new UnauthorizedException('Invalid OTP');
-      }
-
-      record.isVerified = true;
-      await this.otpRepository.save(record);
+    if (record.attemptCount >= 5) {
+      throw new UnauthorizedException('Maximum OTP attempts exceeded');
     }
+
+    if (record.otp !== otp) {
+      record.attemptCount += 1;
+      await this.otpRepository.save(record);
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    record.isVerified = true;
+    await this.otpRepository.save(record);
 
     const userInDb = await this.userRepository.findOne({
       where: { uid: contact.userUid },
@@ -357,9 +353,7 @@ export class UsersService {
       throw new HttpException({ message: 'User not found' }, HttpStatus.UNAUTHORIZED);
     }
 
-    if (!isStaging) {
-      await this.otpService.markOtpAsUsed(phone);
-    }
+    await this.otpService.markOtpAsUsed(phone);
 
     const payloadJwt: JwtPayload = {
       uid: userInDb.uid,

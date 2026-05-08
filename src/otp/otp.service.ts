@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { randomInt } from 'crypto';
 import { OtpEntity } from './otp.entity';
 import { SmsService } from './sms.service';
@@ -24,8 +24,6 @@ export class OtpService {
   }
 
   async sendOtp(identifier: string): Promise<any> {
-    const isStaging = process.env.APP_MODE === 'staging' || process.env.NODE_ENV === 'staging';
-
     const lastOtp = await this.otpRepository.findOne({
       where: { phone: identifier },
       order: { createdAt: 'DESC' },
@@ -43,7 +41,7 @@ export class OtpService {
       }
     }
 
-    const otp = isStaging ? '123456' : this.generateOtp();
+    const otp = this.generateOtp();
 
     this.logger.log(`[OTP] Sending OTP to ${identifier}: ${otp}`);
 
@@ -57,40 +55,38 @@ export class OtpService {
 
     await this.otpRepository.save(otpRecord);
 
-    if (!isStaging) {
-      let response;
+    let response;
 
-      if (identifier.includes('@')) {
-        try {
-          await this.mailService.sendMail(
-            identifier,
-            'Your Verification Code',
-            `<p>Your OTP code is: <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
-          );
-          response = { success: true };
-        } catch (error) {
-          response = {
-            success: false,
-            error: error instanceof Error ? error.message : String(error),
-          };
-        }
-      } else {
-        const smsResponse = await this.smsService.sendOtp(identifier, Number(otp));
-        this.logger.log(`SMS Response for ${identifier}: ${JSON.stringify(smsResponse)}`);
-        response = { success: smsResponse.success, error: smsResponse.error, data: smsResponse.data };
-      }
-
-      if (!response.success) {
-        return {
-          status: 'error',
-          code: 500,
-          data: {
-            message: 'Failed to send OTP',
-            error: response.error,
-          },
-          meta: { timestamp: new Date().toISOString() },
+    if (identifier.includes('@')) {
+      try {
+        await this.mailService.sendMail(
+          identifier,
+          'Your Verification Code',
+          `<p>Your OTP code is: <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
+        );
+        response = { success: true };
+      } catch (error) {
+        response = {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
         };
       }
+    } else {
+      const smsResponse = await this.smsService.sendOtp(identifier, Number(otp));
+      this.logger.log(`SMS Response for ${identifier}: ${JSON.stringify(smsResponse)}`);
+      response = { success: smsResponse.success, error: smsResponse.error, data: smsResponse.data };
+    }
+
+    if (!response.success) {
+      return {
+        status: 'error',
+        code: 500,
+        data: {
+          message: 'Failed to send OTP',
+          error: response.error,
+        },
+        meta: { timestamp: new Date().toISOString() },
+      };
     }
 
     const responseData: any = {
@@ -114,20 +110,6 @@ export class OtpService {
   async verifyOtp(phone: string, otp: string): Promise<any> {
     const timestamp = new Date().toISOString();
     this.logger.log(`[OTP] Verifying OTP for ${phone}: ${otp}`);
-
-    const isStaging = process.env.APP_MODE === 'staging' || process.env.NODE_ENV === 'staging';
-
-    if (isStaging && otp === '123456') {
-      return {
-        status: 'success',
-        code: 200,
-        data: {
-          user: { phone },
-          message: 'OTP verified successfully',
-        },
-        meta: { timestamp },
-      };
-    }
 
     const record = await this.otpRepository.findOne({
       where: { phone: phone.trim(), isVerified: false, used: false },
