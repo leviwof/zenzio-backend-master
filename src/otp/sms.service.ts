@@ -7,9 +7,12 @@ interface Fast2SmsResponse {
   message: string[] | string;
 }
 
+type Fast2SmsRoute = 'q' | 'dlt' | 'dlt_manual' | 'otp';
+
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
+  private readonly fast2SmsUrl = 'https://www.fast2sms.com/dev/bulkV2';
 
   async sendOtp(
     mobile: string,
@@ -58,14 +61,10 @@ export class SmsService {
     otp: number,
   ): Promise<{ success: boolean; message: string; data?: Fast2SmsResponse; error?: string }> {
     try {
-      const payload = new URLSearchParams({
-        variables_values: otp.toString(),
-        route: 'otp',
-        numbers: mobile,
-      });
+      const payload = this.buildFast2SmsPayload(mobile, otp);
 
       const response: AxiosResponse<Fast2SmsResponse> = await axios.post(
-        'https://www.fast2sms.com/dev/bulkV2',
+        this.fast2SmsUrl,
         payload,
         {
           headers: {
@@ -96,12 +95,79 @@ export class SmsService {
       const providerMessage = this.formatProviderMessage(err.response?.data);
       const errorMessage = providerMessage || err.message;
 
-      this.logger.error(
-        `Fast2SMS OTP exception for ${this.maskMobile(mobile)}: ${errorMessage}`,
-      );
+      this.logger.error(`Fast2SMS OTP exception for ${this.maskMobile(mobile)}: ${errorMessage}`);
 
       return { success: false, message: 'Failed to send SMS', error: errorMessage };
     }
+  }
+
+  private buildFast2SmsPayload(mobile: string, otp: number): URLSearchParams {
+    const route = this.getFast2SmsRoute();
+    const payload = new URLSearchParams({
+      route,
+      numbers: mobile,
+    });
+
+    if (route === 'otp') {
+      payload.set('variables_values', otp.toString());
+      return payload;
+    }
+
+    if (route === 'dlt') {
+      const senderId = process.env.SMS_SENDER_ID;
+      const messageId = process.env.SMS_DLT_MESSAGE_ID;
+
+      if (!senderId || !messageId) {
+        throw new Error('Set SMS_SENDER_ID and SMS_DLT_MESSAGE_ID before using SMS_ROUTE=dlt');
+      }
+
+      payload.set('sender_id', senderId);
+      payload.set('message', messageId);
+      payload.set('variables_values', otp.toString());
+      return payload;
+    }
+
+    if (route === 'dlt_manual') {
+      const senderId = process.env.SMS_SENDER_ID;
+      const templateId = process.env.SMS_DLT_TEMPLATE_ID;
+      const entityId = process.env.SMS_ENTITY_ID || process.env.SMS_PEID;
+
+      if (!senderId || !templateId || !entityId) {
+        throw new Error(
+          'Set SMS_SENDER_ID, SMS_DLT_TEMPLATE_ID, and SMS_ENTITY_ID before using SMS_ROUTE=dlt_manual',
+        );
+      }
+
+      payload.set('sender_id', senderId);
+      payload.set('template_id', templateId);
+      payload.set('entity_id', entityId);
+    }
+
+    payload.set('message', this.buildOtpMessage(otp));
+
+    if (route === 'q') {
+      payload.set('language', 'english');
+    }
+
+    return payload;
+  }
+
+  private getFast2SmsRoute(): Fast2SmsRoute {
+    const route = (process.env.SMS_ROUTE || 'q').toLowerCase();
+
+    if (route === 'q' || route === 'dlt' || route === 'dlt_manual' || route === 'otp') {
+      return route;
+    }
+
+    throw new Error('SMS_ROUTE must be one of: q, dlt, dlt_manual, otp');
+  }
+
+  private buildOtpMessage(otp: number): string {
+    const template =
+      process.env.SMS_DLT_TEMPLATE_TEXT ||
+      'Welcome to the Zenzio powered by SMSINDIAHUB. Your OTP for registration is {#var#}';
+
+    return template.replace('{#var#}', otp.toString());
   }
 
   private formatProviderMessage(data?: Fast2SmsResponse): string | undefined {
