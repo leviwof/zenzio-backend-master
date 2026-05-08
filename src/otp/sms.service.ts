@@ -18,11 +18,10 @@ export class SmsService {
   otp: number,
  ): Promise<{ success: boolean; message: string; data?: Fast2SmsResponse; error?: string }> {
 
-  // ⚠️ TEMPORARY: Test mode when Fast2SMS account not recharged
-  const testMode = process.env.SMS_TEST_MODE === 'true';
+  const testMode = process.env.SMS_TEST_MODE === 'true' || process.env.NODE_ENV === 'development';
 
   if (testMode) {
-    this.logger.warn(`🧪 TEST MODE: OTP ${otp} for ${this.maskMobile(mobile)} (SMS not actually sent)`);
+    this.logger.log(`TEST MODE: OTP ${otp} for ${this.maskMobile(mobile)} (SMS not actually sent)`);
     return {
       success: true,
       message: 'SMS sent successfully (TEST MODE)',
