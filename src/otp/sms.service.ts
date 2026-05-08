@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 
 interface Fast2SmsResponse {
   return: boolean;
@@ -92,9 +92,23 @@ export class SmsService {
       this.logger.error(`Fast2SMS OTP failed: ${errMsg}`);
       return { success: false, message: 'Failed to send SMS', error: errMsg };
     } catch (error) {
-      this.logger.error(`Fast2SMS OTP exception: ${(error as Error).message}`);
-      return { success: false, message: 'Failed to send SMS', error: (error as Error).message };
+      const err = error as AxiosError<Fast2SmsResponse>;
+      const providerMessage = this.formatProviderMessage(err.response?.data);
+      const errorMessage = providerMessage || err.message;
+
+      this.logger.error(
+        `Fast2SMS OTP exception for ${this.maskMobile(mobile)}: ${errorMessage}`,
+      );
+
+      return { success: false, message: 'Failed to send SMS', error: errorMessage };
     }
+  }
+
+  private formatProviderMessage(data?: Fast2SmsResponse): string | undefined {
+    if (!data) return undefined;
+    if (Array.isArray(data.message)) return data.message.join(', ');
+    if (typeof data.message === 'string') return data.message;
+    return JSON.stringify(data);
   }
 
   private sanitizeMobile(mobile: string): string {
