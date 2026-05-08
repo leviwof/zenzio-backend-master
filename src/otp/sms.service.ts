@@ -28,8 +28,14 @@ export class SmsService {
   }
 
   const num = this.sanitizeMobile(mobile);
-  const apiKey = process.env.SMS_API_KEY;
-  if (!apiKey) return { success: false, message: 'SMS API key not configured' };
+  const apiKey = process.env.SMS_API_KEY || process.env.FAST2SMS_API_KEY;
+  if (!apiKey) {
+   return {
+    success: false,
+    message: 'SMS API key not configured',
+    error: 'Set SMS_API_KEY or FAST2SMS_API_KEY in the active environment',
+   };
+  }
 
   // Try DLT route first (for DLT-approved sender IDs)
   const dltResult = await this.tryDltRoute(apiKey, num, otp);
