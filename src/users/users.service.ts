@@ -6,9 +6,12 @@ import {
   NotFoundException,
   UnauthorizedException,
   Query,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as firebaseAdmin from 'firebase-admin';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './user.entity';
@@ -17,7 +20,7 @@ import { LoginEmailDto, LoginOtpDto } from './dto/login.dto';
 import { FirebaseService } from '../firebase/firebase.service';
 import { UserContact } from './user_contact.entity';
 import { CreateUserContactDto } from './dto/CreateUserContact.dto';
-import { JwtServiceShared } from '../shared/jwt.service';
+import { JwtPayload, JwtServiceShared } from '../shared/jwt.service';
 import { SessionService } from '../auth/session.service';
 import { ProviderType, Roles } from '../constants/app.enums';
 import { BankDetails } from './bank_details.entity';
@@ -29,6 +32,7 @@ import { UpdateUserProfileDto } from './dto/update-profile.dto';
 import { UserProfile } from './user_profile.entity';
 import { toggleUserIsActiveUtil, userStatusByAdminUtil } from './utils/user-status.utils';
 import { ReferralService } from 'src/referral/referral.service';
+import { OtpService } from 'src/otp/otp.service';
 
 @Injectable()
 export class UsersService {
@@ -54,15 +58,13 @@ export class UsersService {
     private readonly utilService: UtilService,
     private readonly mailService: MailService,
     private readonly referralService: ReferralService,
+    private readonly otpService: OtpService,
   ) { }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const user = this.userRepository.create(createUserDto);
     return await this.userRepository.save(user);
   }
-
-
-
 
   async signupWithEmail(registerUserDto: RegisterUserDto) {
     const {
@@ -80,42 +82,39 @@ export class UsersService {
     } = registerUserDto;
 
     const existingContact = await this.userContactRepository.findOne({
-      where: [{ encryptedEmail: email }, { encryptedPhone: phoneNumber }],
+      where: { encryptedPhone: phoneNumber },
     });
     if (existingContact) {
-      throw new BadRequestException('Users Email or phone number already exists.');
+      throw new BadRequestException('Phone number already exists.');
     }
 
-    // --- NEW: Validate referral code BEFORE any Firebase/DB creation
     if (registerUserDto.refer_code) {
       await this.referralService.validateReferCode(registerUserDto.refer_code);
     }
-    // -----------------------------------------------------------------
 
-    let firebaseAccount;
-    try {
-      firebaseAccount = await this.firebaseService.registerUser(
-        firstName,
-        lastName,
-        email,
-        password,
-      );
-    } catch (error) {
-      if (
-        (error as any).code === 'auth/email-already-exists' ||
-        (error as any).code === 'auth/email-already-in-use'
-      ) {
+    let firebaseAccount: firebaseAdmin.auth.UserRecord | null = null;
 
-
-        // Reuse the existing Firebase account instead of deleting it
-        firebaseAccount = await this.firebaseService.getUserByEmail(email);
-        if (!firebaseAccount) {
-          throw new BadRequestException('Failed to retrieve existing user from Firebase.');
+    if (email && password) {
+      try {
+        firebaseAccount = await this.firebaseService.registerUser(
+          firstName,
+          lastName,
+          email,
+          password,
+        );
+      } catch (error) {
+        if (
+          (error as any).code === 'auth/email-already-exists' ||
+          (error as any).code === 'auth/email-already-in-use'
+        ) {
+          firebaseAccount = await this.firebaseService.getUserByEmail(email);
+          if (!firebaseAccount) {
+            throw new BadRequestException('Failed to retrieve existing user from Firebase.');
+          }
+        } else {
+          throw error;
         }
-      } else {
-        throw error;
       }
-
     }
 
     const uid = await this.utilService.generateUniqueUid(async (generatedUid) => {
@@ -123,27 +122,28 @@ export class UsersService {
       return !!existingUid;
     });
 
+    const userUid = uid + 'UsR';
+
     const createUserDto: CreateUserDto = {
-      uid: uid + 'UsR',
-      firebase_uid: firebaseAccount.uid,
+      uid: userUid,
+      firebase_uid: firebaseAccount?.uid || '',
       firstName,
       lastName,
       photo: Array.isArray(photo) ? photo : photo ? [photo] : [],
       role: Roles.USER_CUSTOMER,
-      providerType:
-        (firebaseAccount.providerData?.[0]?.providerId as ProviderType) ||
-        ('email' as ProviderType),
+      providerType: firebaseAccount
+        ? (firebaseAccount.providerData?.[0]?.providerId as ProviderType) || ('email' as ProviderType)
+        : ('phone' as ProviderType),
     };
 
     const user = this.userRepository.create(createUserDto);
     const savedUser = await this.userRepository.save(user);
 
-    const createUserContactDto: CreateUserContactDto = {
+    const userContact = this.userContactRepository.create({
       userUid: savedUser.uid,
-      encryptedEmail: email,
+      encryptedEmail: email || undefined,
       encryptedPhone: phoneNumber,
-    };
-    const userContact = this.userContactRepository.create(createUserContactDto);
+    } as CreateUserContactDto);
     await this.userContactRepository.save(userContact);
 
     const bankDetails = this.bankDetailsRepository.create({
@@ -182,146 +182,186 @@ export class UsersService {
     });
     await this.profileRepo.save(profile);
 
-    const verifyLink = await this.firebaseService.sendEmailVerification(
-      email,
-      process.env.EMAIL_VERIFICATION_REDIRECT_URL || 'https://zenzio.in',
-    );
+    if (email) {
+      const verifyLink = await this.firebaseService.sendEmailVerification(
+        email,
+        process.env.EMAIL_VERIFICATION_REDIRECT_URL || 'https://zenzio.in',
+      );
 
-    const html = `
-      <h2>Welcome to Zenzio</h2>
-      <p>Please verify your email address to activate your account.</p>
-      <a href="${verifyLink}" style="background:#1c7ed6;color:white;padding:10px 18px;
-      text-decoration:none;border-radius:8px;display:inline-block;margin-top:10px;">
-      Verify Email
-      </a>
-      <p>If button doesn't work, open this link:</p>
-      <p>${verifyLink}</p>
-    `;
+      const html = `
+        <h2>Welcome to Zenzio</h2>
+        <p>Please verify your email address to activate your account.</p>
+        <a href="${verifyLink}" style="background:#1c7ed6;color:white;padding:10px 18px;
+        text-decoration:none;border-radius:8px;display:inline-block;margin-top:10px;">
+        Verify Email
+        </a>
+        <p>If button doesn't work, open this link:</p>
+        <p>${verifyLink}</p>
+      `;
 
-    await this.mailService.sendMail(email, 'Verify Your Zenzio Account', html);
+      await this.mailService.sendMail(email, 'Verify Your Zenzio Account', html);
+    }
 
-    // Generate and save a unique refer_code for the new user
     await this.referralService.generateAndSaveReferCode(savedUser.uid);
 
-    // If a referral code was provided at signup, apply it (silent fail if invalid)
     if (registerUserDto.refer_code) {
       await this.referralService.applyReferCode(savedUser.uid, registerUserDto.refer_code);
     }
 
     const fullUser = await this.userRepository.findOne({
       where: { uid: savedUser.uid },
-      relations: ['contact', 'bank_details', 'profile'],
+      relations: ['contact', 'bank_details', 'profile', 'address'],
     });
 
-    return {
-      fullUser,
-      accessToken: '',
-      refreshToken: ''
-    };
-  }
+    if (!fullUser) {
+      throw new BadRequestException('Failed to retrieve created user');
+    }
 
-
-
-
-  async loginWithEmail(payload: LoginEmailDto) {
-    const userType = Roles.USER_CUSTOMER;
-    const { email, password } = payload;
-
-    type FirebaseLoginResponse = {
-      user?: { firebase_uid: string;[key: string]: any };
-      [key: string]: any;
-    };
-
-    const firebaseResponse = (await this.firebaseService.loginUser(
-      email,
-      password,
-      userType,
-    )) as FirebaseLoginResponse;
-
-    if (!firebaseResponse.user) return firebaseResponse;
-
-    const userInDb = await this.userRepository.findOne({
-      where: {
-        firebase_uid: firebaseResponse.user.firebase_uid,
-        role: userType,
-      },
-      relations: ['contact', 'bank_details', 'address'],
-    });
-
-    if (!userInDb) throw new UnauthorizedException('User not registered in app DB');
-
-
-    const payloadJwt = {
-      uid: userInDb.uid,
-      userId: userInDb.id,
-      firebase_uid: userInDb.firebase_uid,
-      email,
-      role: userInDb.role,
+    const payloadJwt: JwtPayload = {
+      uid: savedUser.uid,
+      userId: savedUser.id,
+      firebase_uid: savedUser.firebase_uid,
+      role: savedUser.role,
     };
 
     const accessToken = this.jwtService.generateAccessToken(payloadJwt);
     const refreshToken = await this.jwtService.generateRefreshToken(payloadJwt);
 
-    await this.sessionService.createSession(userInDb, refreshToken);
+    await this.sessionService.createSession(savedUser, refreshToken);
 
     return {
-      user: {
-        id: userInDb.id,
-        uid: userInDb.uid,
-        firebase_uid: userInDb.firebase_uid,
-        providerType: userInDb.providerType,
-        role: userInDb.role,
-        status: userInDb.status,
-        verificationFlags: userInDb.verificationFlags,
-        createdAt: userInDb.createdAt,
-        updatedAt: userInDb.updatedAt,
-      },
       accessToken,
       refreshToken,
-      accessTokenExpiresIn: this.jwtService.getExpireInSeconds(
-        this.jwtService['accessTokenExpiresIn'],
-      ),
-      refreshTokenExpiresIn: this.jwtService.getExpireInSeconds(
-        this.jwtService['refreshTokenExpiresIn'],
-      ),
+      fullUser: {
+        id: fullUser!.id,
+        firstName: fullUser!.profile?.first_name,
+        lastName: fullUser!.profile?.last_name,
+        contact: {
+          encryptedEmail: fullUser!.contact?.encryptedEmail || null,
+          encryptedPhone: fullUser!.contact?.encryptedPhone || null,
+        },
+      },
     };
   }
 
+  async loginWithEmail(payload: LoginEmailDto) {
+    const userType = Roles.USER_CUSTOMER;
+    const { email, password, phone, otp } = payload;
 
+    if (email && password) {
+      type FirebaseLoginResponse = {
+        user?: { firebase_uid: string;[key: string]: any };
+        [key: string]: any;
+      };
 
+      const firebaseResponse = (await this.firebaseService.loginUser(
+        email,
+        password,
+        userType,
+      )) as FirebaseLoginResponse;
+
+      if (!firebaseResponse.user) return firebaseResponse;
+
+      const userInDb = await this.userRepository.findOne({
+        where: {
+          firebase_uid: firebaseResponse.user.firebase_uid,
+          role: userType,
+        },
+        relations: ['contact', 'bank_details', 'address'],
+      });
+
+      if (!userInDb) throw new UnauthorizedException('User not registered in app DB');
+
+      const payloadJwt: JwtPayload = {
+        uid: userInDb.uid,
+        userId: userInDb.id,
+        firebase_uid: userInDb.firebase_uid,
+        email,
+        role: userInDb.role,
+      };
+
+      const accessToken = this.jwtService.generateAccessToken(payloadJwt);
+      const refreshToken = await this.jwtService.generateRefreshToken(payloadJwt);
+
+      await this.sessionService.createSession(userInDb, refreshToken);
+
+      return {
+        user: {
+          id: userInDb.id,
+          uid: userInDb.uid,
+          firebase_uid: userInDb.firebase_uid,
+          providerType: userInDb.providerType,
+          role: userInDb.role,
+          status: userInDb.status,
+          verificationFlags: userInDb.verificationFlags,
+          createdAt: userInDb.createdAt,
+          updatedAt: userInDb.updatedAt,
+        },
+        accessToken,
+        refreshToken,
+        accessTokenExpiresIn: this.jwtService.getExpireInSeconds(
+          this.jwtService['accessTokenExpiresIn'],
+        ),
+        refreshTokenExpiresIn: this.jwtService.getExpireInSeconds(
+          this.jwtService['refreshTokenExpiresIn'],
+        ),
+      };
+    }
+
+    return this.loginWithOtp({ phone, otp });
+  }
 
   async loginWithOtp(payload: LoginOtpDto) {
     const { phone, otp } = payload;
+
+    const isStaging = process.env.APP_MODE === 'staging' || process.env.NODE_ENV === 'staging';
 
     const contact = await this.userContactRepository.findOne({
       where: { encryptedPhone: phone },
     });
 
-    if (!contact) throw new UnauthorizedException('Phone number not found');
+    if (!contact) {
+      throw new HttpException({ message: 'User not found' }, HttpStatus.UNAUTHORIZED);
+    }
 
-    const record = await this.otpRepository.findOne({
-      where: { phone: contact.encryptedPhone, isVerified: false },
-      order: { createdAt: 'DESC' },
-    });
+    if (!isStaging) {
+      const record = await this.otpRepository.findOne({
+        where: { phone: contact.encryptedPhone, isVerified: false, used: false },
+        order: { createdAt: 'DESC' },
+      });
 
-    if (!record) throw new UnauthorizedException('Invalid user or Otp');
+      if (!record) throw new UnauthorizedException('Invalid OTP');
 
-    if (new Date() > record.expiresAt) throw new UnauthorizedException('OTP expired');
+      if (new Date() > record.expiresAt) throw new UnauthorizedException('OTP expired');
 
-    if (record.otp !== otp) throw new UnauthorizedException('Invalid OTP');
+      if (record.attemptCount >= 5) {
+        throw new UnauthorizedException('Maximum OTP attempts exceeded');
+      }
 
-    record.isVerified = true;
-    await this.otpRepository.save(record);
+      if (record.otp !== otp) {
+        record.attemptCount += 1;
+        await this.otpRepository.save(record);
+        throw new UnauthorizedException('Invalid OTP');
+      }
+
+      record.isVerified = true;
+      await this.otpRepository.save(record);
+    }
 
     const userInDb = await this.userRepository.findOne({
       where: { uid: contact.userUid },
-      relations: ['contact', 'address'],
+      relations: ['contact', 'profile', 'address'],
     });
 
-    if (!userInDb) throw new UnauthorizedException('Restaurant not registered in app DB');
+    if (!userInDb) {
+      throw new HttpException({ message: 'User not found' }, HttpStatus.UNAUTHORIZED);
+    }
 
+    if (!isStaging) {
+      await this.otpService.markOtpAsUsed(phone);
+    }
 
-    const payloadJwt = {
+    const payloadJwt: JwtPayload = {
       uid: userInDb.uid,
       userId: userInDb.id,
       firebase_uid: userInDb.firebase_uid,
@@ -334,28 +374,19 @@ export class UsersService {
     await this.sessionService.createSession(userInDb, refreshToken);
 
     return {
-      user: {
-        id: userInDb.id,
-        uid: userInDb.uid,
-        firebase_uid: userInDb.firebase_uid,
-        providerType: userInDb.providerType,
-        role: userInDb.role,
-        status: userInDb.status,
-        verificationFlags: userInDb.verificationFlags,
-        createdAt: userInDb.createdAt,
-        updatedAt: userInDb.updatedAt,
-      },
       accessToken,
       refreshToken,
-      accessTokenExpiresIn: this.jwtService.getExpireInSeconds(
-        this.jwtService['accessTokenExpiresIn'],
-      ),
-      refreshTokenExpiresIn: this.jwtService.getExpireInSeconds(
-        this.jwtService['refreshTokenExpiresIn'],
-      ),
+      fullUser: {
+        id: userInDb.id,
+        firstName: userInDb.profile?.first_name,
+        lastName: userInDb.profile?.last_name,
+        contact: {
+          encryptedEmail: userInDb.contact?.encryptedEmail || null,
+          encryptedPhone: userInDb.contact?.encryptedPhone,
+        },
+      },
     };
   }
-
 
   async findByUid(uid: string): Promise<User> {
     const user = await this.userRepository.findOne({
@@ -376,9 +407,61 @@ export class UsersService {
     return user;
   }
 
-  async refreshAuthToken(@Query('refreshToken') refreshToken: string) {
-    return this.firebaseService.refreshAuthToken(refreshToken);
+  async refreshAuthToken(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+
+    let payload: JwtPayload;
+    try {
+      payload = this.jwtService.verifyRefreshToken(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { uid: payload.uid },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    await this.sessionService.deleteSession(refreshToken);
+
+    const newPayload: JwtPayload = {
+      uid: user.uid,
+      userId: user.id,
+      firebase_uid: user.firebase_uid,
+      role: user.role,
+    };
+
+    const newAccessToken = this.jwtService.generateAccessToken(newPayload);
+    const newRefreshToken = await this.jwtService.generateRefreshToken(newPayload);
+
+    await this.sessionService.createSession(user, newRefreshToken);
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   async findAll(): Promise<User[]> {
     return await this.userRepository.find();

@@ -30,6 +30,12 @@ export class OtpEntity {
   @Column({ default: false })
   isVerified: boolean;
 
+  @Column({ default: 0 })
+  attemptCount: number;
+
+  @Column({ default: false })
+  used: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

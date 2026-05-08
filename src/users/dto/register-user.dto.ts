@@ -43,20 +43,21 @@ export class RegisterUserDto {
   @IsDateString({ strict: true }, { message: 'Anniversary must be a valid ISO Date string' })
   anniversary: string;
 
-  @ApiProperty({ description: "The user's email address" })
-  @IsNotEmpty()
+  @ApiProperty({ description: "The user's email address", required: false })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null || value === undefined ? undefined : value))
   @IsEmail()
-  email: string;
+  email?: string;
 
   @ApiProperty({ description: "The user's phone number" })
   @IsNotEmpty()
   @IsString()
   phoneNumber: string;
 
-  @ApiProperty({ description: "The user's password" })
-  @IsNotEmpty()
+  @ApiProperty({ description: "The user's password", required: false })
+  @IsOptional()
   @Length(8, 20)
-  password: string;
+  password?: string;
 
   @ApiProperty({ type: CreateBankDetailsDto, required: false })
   @IsOptional()

@@ -1,16 +1,29 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, Length } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, Length } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class LoginEmailDto {
-  @ApiProperty({ description: "The user's email address" })
-  @IsNotEmpty()
+  @ApiProperty({ description: "The user's email address", required: false })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null || value === undefined ? undefined : value))
   @IsEmail()
-  email: string;
+  email?: string;
 
-  @ApiProperty({ description: "The user's password" })
-  @IsNotEmpty()
+  @ApiProperty({ description: "The user's password", required: false })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null || value === undefined ? undefined : value))
   @Length(8, 20)
-  password: string;
+  password?: string;
+
+  @ApiProperty({ description: "The user's phone number" })
+  @IsNotEmpty()
+  @Length(10, 15)
+  phone: string;
+
+  @ApiProperty({ description: 'Mobile Otp' })
+  @IsNotEmpty()
+  @Length(4, 6)
+  otp: string;
 }
 
 export class LoginOtpDto {
