@@ -121,6 +121,43 @@ export const envValidationSchema = Joi.object({
 
   SMS_API_URL: Joi.string().uri().optional().allow('').description('SMS provider API URL'),
 
+  SMS_ROUTE: Joi.string()
+    .valid('q', 'dlt', 'dlt_manual', 'otp')
+    .default('q')
+    .description(
+      'Fast2SMS route: q for quick testing, dlt/dlt_manual for approved DLT, otp for OTP route',
+    ),
+
+  SMS_SENDER_ID: Joi.string()
+    .optional()
+    .allow('')
+    .description('DLT-approved sender/header ID for Fast2SMS DLT routes'),
+
+  SMS_DLT_MESSAGE_ID: Joi.string()
+    .optional()
+    .allow('')
+    .description('Fast2SMS DLT Manager message ID used with SMS_ROUTE=dlt'),
+
+  SMS_DLT_TEMPLATE_ID: Joi.string()
+    .optional()
+    .allow('')
+    .description('DLT content template ID used with SMS_ROUTE=dlt_manual'),
+
+  SMS_ENTITY_ID: Joi.string()
+    .optional()
+    .allow('')
+    .description('DLT principal entity ID used with SMS_ROUTE=dlt_manual'),
+
+  SMS_PEID: Joi.string()
+    .optional()
+    .allow('')
+    .description('Legacy DLT principal entity ID fallback'),
+
+  SMS_DLT_TEMPLATE_TEXT: Joi.string()
+    .optional()
+    .allow('')
+    .description('Exact approved DLT template text with {#var#} placeholder for OTP'),
+
   SMS_TEST_MODE: Joi.string()
     .valid('true', 'false')
     .default('false')
