@@ -246,65 +246,69 @@ export class UsersService {
 
   async loginWithEmail(payload: LoginEmailDto) {
     const userType = Roles.USER_CUSTOMER;
-    const { email, password } = payload;
+    const { email, password, phone, otp } = payload;
 
-    type FirebaseLoginResponse = {
-      user?: { firebase_uid: string;[key: string]: any };
-      [key: string]: any;
-    };
+    if (email && password) {
+      type FirebaseLoginResponse = {
+        user?: { firebase_uid: string;[key: string]: any };
+        [key: string]: any;
+      };
 
-    const firebaseResponse = (await this.firebaseService.loginUser(
-      email,
-      password,
-      userType,
-    )) as FirebaseLoginResponse;
+      const firebaseResponse = (await this.firebaseService.loginUser(
+        email,
+        password,
+        userType,
+      )) as FirebaseLoginResponse;
 
-    if (!firebaseResponse.user) return firebaseResponse;
+      if (!firebaseResponse.user) return firebaseResponse;
 
-    const userInDb = await this.userRepository.findOne({
-      where: {
-        firebase_uid: firebaseResponse.user.firebase_uid,
-        role: userType,
-      },
-      relations: ['contact', 'bank_details', 'address'],
-    });
+      const userInDb = await this.userRepository.findOne({
+        where: {
+          firebase_uid: firebaseResponse.user.firebase_uid,
+          role: userType,
+        },
+        relations: ['contact', 'bank_details', 'address'],
+      });
 
-    if (!userInDb) throw new UnauthorizedException('User not registered in app DB');
+      if (!userInDb) throw new UnauthorizedException('User not registered in app DB');
 
-    const payloadJwt: JwtPayload = {
-      uid: userInDb.uid,
-      userId: userInDb.id,
-      firebase_uid: userInDb.firebase_uid,
-      email,
-      role: userInDb.role,
-    };
-
-    const accessToken = this.jwtService.generateAccessToken(payloadJwt);
-    const refreshToken = await this.jwtService.generateRefreshToken(payloadJwt);
-
-    await this.sessionService.createSession(userInDb, refreshToken);
-
-    return {
-      user: {
-        id: userInDb.id,
+      const payloadJwt: JwtPayload = {
         uid: userInDb.uid,
+        userId: userInDb.id,
         firebase_uid: userInDb.firebase_uid,
-        providerType: userInDb.providerType,
+        email,
         role: userInDb.role,
-        status: userInDb.status,
-        verificationFlags: userInDb.verificationFlags,
-        createdAt: userInDb.createdAt,
-        updatedAt: userInDb.updatedAt,
-      },
-      accessToken,
-      refreshToken,
-      accessTokenExpiresIn: this.jwtService.getExpireInSeconds(
-        this.jwtService['accessTokenExpiresIn'],
-      ),
-      refreshTokenExpiresIn: this.jwtService.getExpireInSeconds(
-        this.jwtService['refreshTokenExpiresIn'],
-      ),
-    };
+      };
+
+      const accessToken = this.jwtService.generateAccessToken(payloadJwt);
+      const refreshToken = await this.jwtService.generateRefreshToken(payloadJwt);
+
+      await this.sessionService.createSession(userInDb, refreshToken);
+
+      return {
+        user: {
+          id: userInDb.id,
+          uid: userInDb.uid,
+          firebase_uid: userInDb.firebase_uid,
+          providerType: userInDb.providerType,
+          role: userInDb.role,
+          status: userInDb.status,
+          verificationFlags: userInDb.verificationFlags,
+          createdAt: userInDb.createdAt,
+          updatedAt: userInDb.updatedAt,
+        },
+        accessToken,
+        refreshToken,
+        accessTokenExpiresIn: this.jwtService.getExpireInSeconds(
+          this.jwtService['accessTokenExpiresIn'],
+        ),
+        refreshTokenExpiresIn: this.jwtService.getExpireInSeconds(
+          this.jwtService['refreshTokenExpiresIn'],
+        ),
+      };
+    }
+
+    return this.loginWithOtp({ phone, otp });
   }
 
   async loginWithOtp(payload: LoginOtpDto) {
