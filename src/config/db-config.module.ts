@@ -48,6 +48,11 @@ const envFilePath =
           synchronize: false,
           logging: false,
           autoLoadEntities: true,
+          retryAttempts: 3,
+          retryDelay: 3000,
+          extra: {
+            connectionTimeoutMillis: 10000,
+          },
 
           // ✅ No SSL, no CA certificate, no encryption
           // ✅ Secure by default, but allow disabling for Internal Render updates

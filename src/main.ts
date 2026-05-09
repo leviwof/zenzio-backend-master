@@ -156,7 +156,7 @@ async function bootstrap() {
 
 
 
-  const port = Number(process.env.PORT) || 4000;
+  const port = Number(process.env.PORT || process.env.WEBSITES_PORT) || 4000;
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Server running on http://0.0.0.0:${port}`);
