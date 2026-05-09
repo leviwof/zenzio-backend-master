@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosError, AxiosResponse } from 'axios';
 
 interface Fast2SmsResponse {
-  return: boolean;
-  request_id: string;
+  return: boolean | string;
+  request_id?: string;
   message: string[] | string;
 }
 
@@ -78,7 +78,7 @@ export class SmsService {
 
       this.logger.log(`Fast2SMS OTP response: ${JSON.stringify(response.data)}`);
 
-      if (response.data?.return === true) {
+      if (this.isFast2SmsSuccess(response.data)) {
         this.logger.log(`OTP sent via Fast2SMS to ${this.maskMobile(mobile)}`);
         return { success: true, message: 'SMS sent successfully', data: response.data };
       }
@@ -175,6 +175,26 @@ export class SmsService {
     if (Array.isArray(data.message)) return data.message.join(', ');
     if (typeof data.message === 'string') return data.message;
     return JSON.stringify(data);
+  }
+
+  private isFast2SmsSuccess(data?: Fast2SmsResponse): boolean {
+    if (!data) return false;
+
+    const returnValue =
+      typeof data.return === 'string' ? data.return.toLowerCase() === 'true' : data.return === true;
+    if (returnValue) return true;
+
+    const message = this.formatProviderMessage(data)?.toLowerCase() || '';
+    const hasSuccessMessage =
+      message.includes('sent') || message.includes('success') || message.includes('submitted');
+    const hasFailureMessage =
+      message.includes('fail') ||
+      message.includes('error') ||
+      message.includes('invalid') ||
+      message.includes('insufficient') ||
+      message.includes('unauthoriz');
+
+    return Boolean(data.request_id && hasSuccessMessage && !hasFailureMessage);
   }
 
   private sanitizeMobile(mobile: string): string {
