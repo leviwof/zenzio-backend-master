@@ -11,11 +11,16 @@ export const envValidationSchema = Joi.object({
   // NODE ENVIRONMENT
   // ============================================================================
   NODE_ENV: Joi.string()
-    .valid('development', 'production', 'test')
+    .valid('development', 'production', 'staging', 'test')
     .default('development')
     .description('Application environment'),
 
   PORT: Joi.number().port().default(4000).description('Application port'),
+
+  WEBSITES_PORT: Joi.number()
+    .port()
+    .optional()
+    .description('Azure App Service container port'),
 
   // ============================================================================
   // DATABASE
@@ -223,7 +228,7 @@ export const envValidationSchema = Joi.object({
     .description('Platform fee percentage'),
 
   APP_MODE: Joi.string()
-    .valid('development', 'production')
+    .valid('development', 'production', 'staging')
     .default('development')
     .description('Application mode'),
 });
