@@ -16,6 +16,34 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 
 dns.setDefaultResultOrder('ipv4first');
 
+function loadFirebaseServiceAccount(): firebaseAdmin.ServiceAccount | null {
+  const firebaseAdminJson = process.env.FIREBASE_ADMINSDK_JSON;
+  if (firebaseAdminJson) {
+    return JSON.parse(firebaseAdminJson) as firebaseAdmin.ServiceAccount;
+  }
+
+  const firebaseAdminBase64 = process.env.FIREBASE_ADMINSDK_BASE64;
+  if (firebaseAdminBase64) {
+    return JSON.parse(
+      Buffer.from(firebaseAdminBase64, 'base64').toString('utf-8'),
+    ) as firebaseAdmin.ServiceAccount;
+  }
+
+  const firebaseKeyFilePath = join(
+    process.cwd(),
+    'src',
+    'config',
+    'firebase-adminsdk.json',
+  );
+
+  if (!fs.existsSync(firebaseKeyFilePath)) {
+    console.warn('Firebase key file not found:', firebaseKeyFilePath);
+    return null;
+  }
+
+  return JSON.parse(fs.readFileSync(firebaseKeyFilePath, 'utf-8')) as firebaseAdmin.ServiceAccount;
+}
+
 async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -53,27 +81,16 @@ async function bootstrap() {
   app.use(cookieParser.default());
 
 
-  const firebaseKeyFilePath = join(
-    process.cwd(),
-    'src',
-    'config',
-    'firebase-adminsdk.json',
-  );
-
-  if (!fs.existsSync(firebaseKeyFilePath)) {
-    console.error('Firebase key file not found:', firebaseKeyFilePath);
-    process.exit(1);
-  }
-
-  const firebaseServiceAccount = JSON.parse(
-    fs.readFileSync(firebaseKeyFilePath, 'utf-8'),
-  ) as firebaseAdmin.ServiceAccount;
-
   if (firebaseAdmin.apps.length === 0) {
-    console.log('Initializing Firebase Admin SDK...');
-    firebaseAdmin.initializeApp({
-      credential: firebaseAdmin.credential.cert(firebaseServiceAccount),
-    });
+    const firebaseServiceAccount = loadFirebaseServiceAccount();
+    if (firebaseServiceAccount) {
+      console.log('Initializing Firebase Admin SDK...');
+      firebaseAdmin.initializeApp({
+        credential: firebaseAdmin.credential.cert(firebaseServiceAccount),
+      });
+    } else {
+      console.warn('Firebase Admin SDK was not initialized. Firebase admin features will fail until credentials are configured.');
+    }
   }
 
   const corsOrigin = process.env.CORS_ORIGIN || '*';

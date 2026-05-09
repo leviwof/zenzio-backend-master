@@ -6,11 +6,16 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as path from 'path';
 import databaseConfig from './database.config';
 
+const envFilePath =
+  process.env.NODE_ENV === 'staging'
+    ? '.env.staging'
+    : '.env';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: path.resolve(__dirname, '..', '..', '.env'),
+      envFilePath: path.resolve(__dirname, '..', '..', envFilePath),
       load: [databaseConfig],
     }),
 
