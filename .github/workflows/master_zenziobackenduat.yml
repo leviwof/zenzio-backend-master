@@ -12,9 +12,6 @@ jobs:
     permissions:
       contents: read
 
-    env:
-      NODE_ENV: production
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
